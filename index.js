@@ -9,7 +9,6 @@ const client = new Client({
     ]
 });
 
-// حماية البوت من أي كراش مفاجئ
 process.on('unhandledRejection', error => {
     console.error('Unhandled promise rejection:', error);
 });
@@ -22,11 +21,10 @@ let systemActive = true;
 
 const afkUsers = new Map();
 const dailyMessages = new Map();
-const userReputation = new Map(); // لتخزين السمعة +rep
-const repCooldowns = new Map();   // لتتبع وقت الـ 24 ساعة لأمر +rep
-const userActivityCount = new Map(); // لتتتبع نشاط الأعضاء
+const userReputation = new Map();
+const repCooldowns = new Map();
+const userActivityCount = new Map();
 
-// أسعار الصرف المحدثة
 const exchangeRates = {
     'ريال': 3.75,
     'sar': 3.75,
@@ -79,7 +77,6 @@ client.on('messageCreate', async message => {
     try {
         if (!message.guild || message.author.bot) return;
 
-        // تتبع النشاط والرسائل
         const currentCount = dailyMessages.get(message.author.id) || 0;
         dailyMessages.set(message.author.id, currentCount + 1);
 
@@ -117,7 +114,6 @@ client.on('messageCreate', async message => {
         const args = message.content.slice(PREFIX.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
 
-        // 1. +status (حالة البوت وسرعته)
         if (command === 'status') {
             const ping = client.ws.ping;
             let speedText = '⚡ سريع جداً';
@@ -140,7 +136,6 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [statusEmbed] });
         }
 
-        // أمر الاستدعاء الجديد (+استدعاء أو +c)
         if (command === 'استدعاء' || command === 'c') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
                 return message.reply('❌ ليس لديك صلاحية لاستخدام أمر الاستدعاء.');
@@ -165,13 +160,12 @@ client.on('messageCreate', async message => {
                     .setTimestamp();
 
                 await targetUser.send({ embeds: [embedDM] });
-                return message.reply({ embeds: [new EmbedBuilder().setColor('#00FF00'].setDescription(`✅ تم إرسال الاستدعاء إلى ${targetUser} في الخاص بنجاح.`)] });
+                return message.reply({ embeds: [new EmbedBuilder().setColor('#00FF00').setDescription(`✅ تم إرسال الاستدعاء إلى ${targetUser} في الخاص بنجاح.`)] });
             } catch (e) {
                 return message.reply(`⚠️ تم محاولة استدعاء ${targetUser}، ولكن تعذر إرسال رسالة خاصة له (خاصه مقفل).`);
             }
         }
 
-        // 2. +warn (تحذير شخص بالخاص)
         if (command === 'warn') {
             if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply('❌ لا تمتلك صلاحية التحذير.');
             const target = message.mentions.members.first();
@@ -186,7 +180,6 @@ client.on('messageCreate', async message => {
             }
         }
 
-        // 3. +slowmode (سلو مود بالانجليزي)
         if (command === 'slowmode' || command === 'سلومود') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ لا تمتلك صلاحية إدارة الرومات.');
             const time = parseInt(args[0]);
@@ -195,7 +188,6 @@ client.on('messageCreate', async message => {
             return message.reply(time === 0 ? '⏱️ تم إلغاء الوضع البطيء (Slowmode).' : `⏱️ تم ضبط الوضع البطيء على **${time}** ثانية.`);
         }
 
-        // 4. +firstmsg @user (أول رسالة للشخص في السيرفر)
         if (command === 'firstmsg') {
             const target = message.mentions.users.first() || message.author;
             await message.channel.sendTyping();
@@ -213,7 +205,6 @@ client.on('messageCreate', async message => {
             }
         }
 
-        // 5. +nick (تغيير النك نيم أو إزالته)
         if (command === 'nick' || command === 'نك') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames)) return message.reply('❌ لا تمتلك صلاحية تعديل النك نيم.');
             const target = message.mentions.members.first();
@@ -233,7 +224,6 @@ client.on('messageCreate', async message => {
             }
         }
 
-        // 6. +servericon (صورة السيرفر)
         if (command === 'servericon') {
             const iconUrl = message.guild.iconURL({ dynamic: true, size: 1024 });
             if (!iconUrl) return message.reply('❌ هذا السيرفر لا يملك صورة.');
@@ -244,7 +234,6 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [iconEmbed] });
         }
 
-        // 7. +serverbanner (بانر السيرفر)
         if (command === 'serverbanner') {
             const bannerUrl = message.guild.bannerURL({ size: 1024 });
             if (!bannerUrl) return message.reply('❌ هذا السيرفر لا يملك بانر.');
@@ -255,10 +244,9 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [bannerEmbed] });
         }
 
-        // 8. +luck (نسبة الحظ اليومي غير محدودة)
         if (command === 'luck') {
             const target = message.mentions.users.first() || message.author;
-            const luckPercentage = Math.floor(Math.random() * 101); // من 0 إلى 100%
+            const luckPercentage = Math.floor(Math.random() * 101);
             let luckMsg = 'حظ عادي جداً اليوم 😐';
             if (luckPercentage > 80) luckMsg = 'حسدونا حظك اليوم خارق وفوق الخيال! 🔥🍀';
             else if (luckPercentage > 50) luckMsg = 'حظك اليوم ممتاز وموفق! ✨';
@@ -271,7 +259,6 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [luckEmbed] });
         }
 
-        // 9. +fortune (توقعات المستقبل عشوائية)
         if (command === 'fortune') {
             const fortunes = [
                 'ستحقق إنجازاً عظيماً قريباً وتفاجئ الجميع! 🌟',
@@ -290,7 +277,6 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [fortuneEmbed] });
         }
 
-        // 10. +challenge @user (تحدي بين العضو وشخص آخر)
         if (command === 'challenge') {
             const target = message.mentions.users.first();
             if (!target || target.id === message.author.id) return message.reply('⚠️ يرجى منشن شخص لتحديه: `+challenge @العضو`');
@@ -310,12 +296,11 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [chalEmbed] });
         }
 
-        // 11. +rep @user (إعطاء سمعة لشخص مع كول داون 24 ساعة)
         if (command === 'rep') {
             const target = message.mentions.users.first();
             if (!target || target.id === message.author.id) return message.reply('⚠️ يرجى منشن عضو لإعطائه سمعة: `+rep @العضو`');
 
-            const cooldownTime = 24 * 60 * 60 * 1000; // 24 ساعة بالميلي ثانية
+            const cooldownTime = 24 * 60 * 60 * 1000;
             const lastRepTime = repCooldowns.get(message.author.id);
 
             if (lastRepTime && (Date.now() - lastRepTime < cooldownTime)) {
@@ -337,7 +322,6 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [repEmbed] });
         }
 
-        // 12. +repboard (ترتيب الأشخاص حسب السمعة)
         if (command === 'repboard') {
             const sortedRep = [...userReputation.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
             let desc = sortedRep.length === 0 ? 'لا توجد نقاط سمعة مسجلة بعد.' : '';
@@ -353,7 +337,6 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [repBoardEmbed] });
         }
 
-        // 13. +activity (معرفة نشاطك بالسيرفر)
         if (command === 'activity') {
             const target = message.mentions.users.first() || message.author;
             const actCount = userActivityCount.get(target.id) || 0;
@@ -364,7 +347,6 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [actEmbed] });
         }
 
-        // 14. +topactive (أكثر الأشخاص نشاطاً أونلاين)
         if (command === 'topactive') {
             const sortedAct = [...userActivityCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
             let desc = sortedAct.length === 0 ? 'لا توجد بيانات نشاط بعد.' : '';
@@ -380,7 +362,6 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [topActEmbed] });
         }
 
-        // الأوامر السابقة
         if (command === 'afk') {
             const reason = args.join(' ') || 'بدون سبب';
             afkUsers.set(message.author.id, reason);
@@ -739,9 +720,6 @@ client.on('messageCreate', async message => {
             return message.reply(`⏱️ تم ضبط الشات البطيء على **${time}** ثانية.`);
         }
 
-        // ==========================================
-        // أمر +help
-        // ==========================================
         if (command === 'help') {
             const totalCommandsCount = 42;
 
