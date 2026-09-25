@@ -14,25 +14,26 @@ let systemActive = true;
 
 const afkUsers = new Map();
 const dailyMessages = new Map();
+const userReputation = new Map(); // لتخزين السمعة +rep
+const userActivityCount = new Map(); // لتتبع نشاط الأعضاء
 
-// أسعار الصرف المحدثة بناءً على طلبك
+// أسعار الصرف المحدثة
 const exchangeRates = {
-    'ريال': 3.75,       // 1 دولار = 3.75 ريال سعودي
+    'ريال': 3.75,
     'sar': 3.75,
-    'درهم': 3.67,      // 1 دولار = 3.67 درهم إماراتي
+    'درهم': 3.67,
     'aed': 3.67,
-    'يورو': 1.1398,    // بناءً على قاعدة 50 يورو = 56.99 دولار
+    'يورو': 1.1398, // 50 يورو = 56.99 دولار
     'eur': 1.1398,
-    'ليرة': 89500,     // 1 دولار = 89,500 ليرة لبنانية
+    'ليرة': 89500,
     'lbp': 89500,
-    'جنيه': 42,        // بناءً على طلبك: 1 دولار = 42 جنيه
+    'جنيه': 42,        // 1 دولار = 42 جنيه
     'egp': 42,
     'دولار': 1.0,
     'usd': 1.0,
     'usdt': 1.0
 };
 
-// دالة تحويل الوقت بشكل آمن لتجنب الكراش
 function parseDuration(timeStr) {
     if (!timeStr || typeof timeStr !== 'string') return null;
     const match = timeStr.match(/^(\d+)([mhd])$/);
@@ -45,7 +46,6 @@ function parseDuration(timeStr) {
     return null;
 }
 
-// تصفير توب الرسائل تلقائياً كل 24 ساعة
 setInterval(() => {
     dailyMessages.clear();
     console.log('[System] Daily messages leaderboard has been reset.');
@@ -55,7 +55,6 @@ client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
 });
 
-// ترحيب تلقائي بالأعضاء الجدد عند دخولهم السيرفر
 client.on('guildMemberAdd', async member => {
     try {
         const welcomeChannel = member.guild.systemChannel;
@@ -71,7 +70,13 @@ client.on('messageCreate', async message => {
     try {
         if (!message.guild || message.author.bot) return;
 
-        // نظام الـ AFK
+        // تتبع النشاط والرسائل
+        const currentCount = dailyMessages.get(message.author.id) || 0;
+        dailyMessages.set(message.author.id, currentCount + 1);
+
+        const totalAct = userActivityCount.get(message.author.id) || 0;
+        userActivityCount.set(message.author.id, totalAct + 1);
+
         if (afkUsers.has(message.author.id)) {
             afkUsers.delete(message.author.id);
             message.reply('أهلاً بك مجدداً! تم إزالة حالة الـ AFK عنك.').then(msg => setTimeout(() => msg.delete().catch(() => {}), 4000)).catch(() => {});
@@ -84,10 +89,6 @@ client.on('messageCreate', async message => {
                 }
             });
         }
-
-        // تتبع الرسائل اليومية
-        const currentCount = dailyMessages.get(message.author.id) || 0;
-        dailyMessages.set(message.author.id, currentCount + 1);
 
         if (message.content === PREFIX + 'ايقاف-السستم') {
             if (message.author.id !== message.guild.ownerId) return message.reply('❌ هذا الأمر مخصص لأونر السيرفر فقط.');
@@ -107,13 +108,233 @@ client.on('messageCreate', async message => {
         const args = message.content.slice(PREFIX.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
 
+        // 1. +status (حالة البوت وسرعته)
+        if (command === 'status') {
+            const ping = client.ws.ping;
+            let speedText = '⚡ سريع جداً';
+            if (ping > 150 && ping <= 350) speedText = ' متوسط';
+            if (ping > 350) speedText = ' بطيء';
+
+            const uptimeSeconds = Math.floor(client.uptime / 1000);
+            const hours = Math.floor(uptimeSeconds / 3600);
+            const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+
+            const statusEmbed = new EmbedBuilder()
+                .setColor('#2b2d31')
+                .setTitle('📊 إحصائيات وحالة البوت')
+                .addFields(
+                    { name: '🏓 البينغ (Ping)', value: `\`${ping}ms\` (${speedText})`, inline: true },
+                    { name: '⏱️ وقت التشغيل', value: `\`${hours} ساعة و ${minutes} دقيقة\``, inline: true },
+                    { name: '👥 السيرفرات', value: `\`${client.guilds.cache.size} سيرفر\``, inline: true }
+                )
+                .setTimestamp();
+            return message.reply({ embeds: [statusEmbed] });
+        }
+
+        // 2. +warn (تحذير شخص بالخاص)
+        if (command === 'warn') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply('❌ لا تمتلك صلاحية التحذير.');
+            const target = message.mentions.members.first();
+            const reason = args.slice(1).join(' ') || 'بدون سبب';
+            if (!target) return message.reply('⚠️ طريقة الاستخدام: `+warn @العضو [السبب]`');
+
+            try {
+                await target.send(`⚠️ **تم تحذيرك في سيرفر ${message.guild.name}**\nالسبب: **${reason}**`);
+                return message.reply(`✅ تم إرسال التحذير إلى العضو **${target.user.tag}** بالخاص بنجاح.`);
+            } catch (e) {
+                return message.reply(`⚠️ تم تحذير العضو **${target.user.tag}**، ولكن تعذر إرسال رسالة خاصة له (خاصه مقفل).`);
+            }
+        }
+
+        // 3. +slowmode (سلو مود بالانجليزي)
+        if (command === 'slowmode' || command === 'سلومود') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ لا تمتلك صلاحية إدارة الرومات.');
+            const time = parseInt(args[0]);
+            if (isNaN(time) || time < 0) return message.reply('⚠️ حدد عدد الثواني (مثال: `+slowmode 5` أو `+slowmode 0` للإلغاء)');
+            await message.channel.setRateLimitPerUser(time);
+            return message.reply(time === 0 ? '⏱️ تم إلغاء الوضع البطيء (Slowmode).' : `⏱️ تم ضبط الوضع البطيء على **${time}** ثانية.`);
+        }
+
+        // 4. +firstmsg @user (أول رسالة للشخص في السيرفر)
+        if (command === 'firstmsg') {
+            const target = message.mentions.users.first() || message.author;
+            await message.channel.sendTyping();
+            try {
+                let fetchedMessages = await message.channel.messages.fetch({ limit: 100 });
+                let userMessages = fetchedMessages.filter(m => m.author.id === target.id);
+                
+                if (userMessages.size === 0) {
+                    return message.reply(`❌ لم يتم العثور على رسائل حديثة لـ ${target} في هذا الروم.`);
+                }
+                let first = userMessages.last();
+                return message.reply(`💬 **أول رسالة عُثر عليها لـ ${target}:**\n> "${first.content}"\n[رابط الرسالة](${first.url})`);
+            } catch (e) {
+                return message.reply('❌ حدث خطأ أثناء البحث عن الرسالة الأولى.');
+            }
+        }
+
+        // 5. +nick (تغيير النك نيم أو إزالته)
+        if (command === 'nick' || command === 'نك') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames)) return message.reply('❌ لا تمتلك صلاحية تعديل النك نيم.');
+            const target = message.mentions.members.first();
+            const newNick = args.slice(1).join(' ');
+            if (!target) return message.reply('⚠️ طريقة الاستخدام: `+nick @العضو [الاسم الجديد]` (أو اكتب اسم الشخص فقط لتصفيره)');
+
+            try {
+                if (!newNick) {
+                    await target.setNickname(null);
+                    return message.reply(`✅ تم إزالة وتصفير النك نيم لـ **${target.user.tag}**.`);
+                } else {
+                    await target.setNickname(newNick);
+                    return message.reply(`✅ تم تغيير نك نيم **${target.user.tag}** إلى: **${newNick}**`);
+                }
+            } catch (e) {
+                return message.reply('❌ فشل تغيير النك نيم، تأكد من رتبة البوت أنها أعلى من العضو.');
+            }
+        }
+
+        // 6. +servericon (صورة السيرفر)
+        if (command === 'servericon') {
+            const iconUrl = message.guild.iconURL({ dynamic: true, size: 1024 });
+            if (!iconUrl) return message.reply('❌ هذا السيرفر لا يملك صورة.');
+            const iconEmbed = new EmbedBuilder()
+                .setColor('#2b2d31')
+                .setTitle(`🖼️ صورة سيرفر: ${message.guild.name}`)
+                .setImage(iconUrl);
+            return message.reply({ embeds: [iconEmbed] });
+        }
+
+        // 7. +serverbanner (بانر السيرفر)
+        if (command === 'serverbanner') {
+            const bannerUrl = message.guild.bannerURL({ size: 1024 });
+            if (!bannerUrl) return message.reply('❌ هذا السيرفر لا يملك بانر.');
+            const bannerEmbed = new EmbedBuilder()
+                .setColor('#2b2d31')
+                .setTitle(`🎨 بانر سيرفر: ${message.guild.name}`)
+                .setImage(bannerUrl);
+            return message.reply({ embeds: [bannerEmbed] });
+        }
+
+        // 8. +luck (نسبة الحظ اليومي غير محدودة)
+        if (command === 'luck') {
+            const target = message.mentions.users.first() || message.author;
+            const luckPercentage = Math.floor(Math.random() * 101); // من 0 إلى 100%
+            let luckMsg = 'حظ عادي جداً اليوم 😐';
+            if (luckPercentage > 80) luckMsg = 'حسدونا حظك اليوم خارق وفوق الخيال! 🔥🍀';
+            else if (luckPercentage > 50) luckMsg = 'حظك اليوم ممتاز وموفق! ✨';
+            else if (luckPercentage < 20) luckMsg = 'انتبه لنفسك اليوم، الحظ سيء قليلاً 😅';
+
+            const luckEmbed = new EmbedBuilder()
+                .setColor('#FFD700')
+                .setTitle('🎲 اختبار الحظ اليومي')
+                .setDescription(`حظ **${target.username}** اليوم هو: **${luckPercentage}%**\n💬 ${luckMsg}`);
+            return message.reply({ embeds: [luckEmbed] });
+        }
+
+        // 9. +fortune (توقعات المستقبل عشوائية)
+        if (command === 'fortune') {
+            const fortunes = [
+                'ستحقق إنجازاً عظيماً قريباً وتفاجئ الجميع! 🌟',
+                'ستحصل على هدية غير متوقعة في الأيام القادمة 🎁.',
+                'فرصة ذهبية ستطرق بابك قريبًا، كن مستعداً لها 🚪✨.',
+                'ستقابل شخصاً جديداً سيغير مجرى بعض الأمور في حياتك 🤝.',
+                'اليوم مناسب جداً للبدء بمشروع جديد أو هواية جديدة 💡.',
+                'ستواجه تحدياً بسيطاً لكنك ستتجاوزه بذكائك المعتاد 💪.',
+                'الكثير من الضحك والأوقات الجميلة بانتظارك هذا الأسبوع 😂❤️.'
+            ];
+            const randomFortune = fortunes[Math.floor(Math.random() * fortunes.length)];
+            const fortuneEmbed = new EmbedBuilder()
+                .setColor('#9B59B6')
+                .setTitle('🔮 كرة التوقعات المستقبلية')
+                .setDescription(`> "${randomFortune}"`);
+            return message.reply({ embeds: [fortuneEmbed] });
+        }
+
+        // 10. +challenge @user (تحدي بين العضو وشخص آخر)
+        if (command === 'challenge') {
+            const target = message.mentions.users.first();
+            if (!target || target.id === message.author.id) return message.reply('⚠️ يرجى منشن شخص لتحديه: `+challenge @العضو`');
+            
+            const challengesList = [
+                'تحدي صراع الأقوياء: من يكتب كلمة "سيرفر" أسرع وبدون غلط!',
+                'تحدي لعبة الصراحة: أجب عن سؤال محرج يطلبه منك الطرف الآخر.',
+                'تحدي من يجمع رسائل أكثر خلال 5 دقائق القادمة في الشات!',
+                'تحدي من يملك حظاً أفضل في رمي النرد (اكتب +luck وشوف من يفوز).'
+            ];
+            const chosenChallenge = challengesList[Math.floor(Math.random() * challengesList.length)];
+
+            const chalEmbed = new EmbedBuilder()
+                .setColor('#E67E22')
+                .setTitle('⚔️ تحدي جديد أُطلق!')
+                .setDescription(`**${message.author}** قام بتحدي ${target}!\n\n🎯 **نوع التحدي:**\n> ${chosenChallenge}\n\nمين قدها؟ ارفعوا التحدي بالروم! 🔥`);
+            return message.reply({ embeds: [chalEmbed] });
+        }
+
+        // 11. +rep @user (إعطاء سمعة لشخص)
+        if (command === 'rep') {
+            const target = message.mentions.users.first();
+            if (!target || target.id === message.author.id) return message.reply('⚠️ يرجى منشن عضو لإعطائه سمعة: `+rep @العضو`');
+            
+            const currentRep = userReputation.get(target.id) || 0;
+            userReputation.set(target.id, currentRep + 1);
+
+            const repEmbed = new EmbedBuilder()
+                .setColor('#2ECC71')
+                .setTitle('⭐ نظام السمعة (Reputation)')
+                .setDescription(`لقد قمت بإعطاء نقطة سمعة لـ ${target} بنجاح!\nإجمالي نقاط سمعته الآن: **${currentRep + 1} ⭐**`);
+            return message.reply({ embeds: [repEmbed] });
+        }
+
+        // 12. +repboard (ترتيب الأشخاص حسب السمعة)
+        if (command === 'repboard') {
+            const sortedRep = [...userReputation.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+            let desc = sortedRep.length === 0 ? 'لا توجد نقاط سمعة مسجلة بعد.' : '';
+            
+            sortedRep.forEach((item, index) => {
+                desc += `**${index + 1}.** <@${item[0]}> - **${item[1]}** ⭐\n`;
+            });
+
+            const repBoardEmbed = new EmbedBuilder()
+                .setColor('#F1C40F')
+                .setTitle('🏆 لوحة شرف السمعة (Reputation Leaderboard)')
+                .setDescription(desc);
+            return message.reply({ embeds: [repBoardEmbed] });
+        }
+
+        // 13. +activity (معرفة نشاطك بالسيرفر)
+        if (command === 'activity') {
+            const target = message.mentions.users.first() || message.author;
+            const actCount = userActivityCount.get(target.id) || 0;
+            const actEmbed = new EmbedBuilder()
+                .setColor('#3498DB')
+                .setTitle(`📊 نشاط العضو: ${target.username}`)
+                .setDescription(`عدد الرسائل والتفاعلات المسجلة لك في هذا السيرفر: **${actCount} تفاعل** 🚀`);
+            return message.reply({ embeds: [actEmbed] });
+        }
+
+        // 14. +topactive (أكثر الأشخاص نشاطاً أونلاين)
+        if (command === 'topactive') {
+            const sortedAct = [...userActivityCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+            let desc = sortedAct.length === 0 ? 'لا توجد بيانات نشاط بعد.' : '';
+
+            sortedAct.forEach((item, index) => {
+                desc += `**${index + 1}.** <@${item[0]}> - **${item[1]}** تفاعل\n`;
+            });
+
+            const topActEmbed = new EmbedBuilder()
+                .setColor('#2ECC71')
+                .setTitle('🔥 أكثر الأعضاء نشاطاً في السيرفر')
+                .setDescription(desc);
+            return message.reply({ embeds: [topActEmbed] });
+        }
+
+        // الأوامر السابقة (AFK, Greet, صرف, رتب, توب, سيرفر, بروفايل, صورة, قفل, فتح, اخفاء, اظهار, تايم, انتايم, فكبان, مسابقة, كيك, بان, مسح, رول-جماعي, رول, بنغ, قول, طوارئ, فك-طوارئ, بطيء)
         if (command === 'afk') {
             const reason = args.join(' ') || 'بدون سبب';
             afkUsers.set(message.author.id, reason);
             return message.reply(`💤 تم ضبط حالتك إلى **غائب (AFK)**. السبب: **${reason}**`);
         }
 
-        // +greet
         if (command === 'greet') {
             const target = message.mentions.members.first() || message.member;
             await message.delete().catch(() => {});
@@ -122,7 +343,6 @@ client.on('messageCreate', async message => {
             return;
         }
 
-        // +صرف (تحويل العملات بناءً على الأسعار المطلوبة)
         if (command === 'صرف' || command === 'تحويل') {
             const amount = parseFloat(args[0]);
             const currency = args[1] ? args[1].toLowerCase() : '';
@@ -137,11 +357,10 @@ client.on('messageCreate', async message => {
             }
 
             let convertedUSD;
-            // الليرة والجنيه يتم القسمة عليهما، اليورو والعملات القوية أو المعاكسة يتم التعامل معها بدقة
             if (currency === 'ليرة' || currency === 'lbp' || currency === 'جنيه' || currency === 'egp') {
                 convertedUSD = (amount / baseRate).toFixed(2);
             } else if (currency === 'يورو' || currency === 'eur') {
-                convertedUSD = (amount * baseRate).toFixed(2); // بما أن اليورو هنا يمثل قيمة الدولار الواحد للقطعة الواحدة
+                convertedUSD = (amount * baseRate).toFixed(2);
             } else {
                 convertedUSD = (amount / baseRate).toFixed(2);
             }
@@ -234,12 +453,12 @@ client.on('messageCreate', async message => {
         }
 
         if (command === 'قفل') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ لا تمتلك صلاحية `ManageChannels`.');
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ لا تمتلك صلاحية.');
             await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false });
             return message.reply('🔒 تم قفل الروم بنجاح.');
         }
         if (command === 'فتح') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ لا تمتلك صلاحية `ManageChannels`.');
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ لا تمتلك صلاحية.');
             await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: null });
             return message.reply('🔓 تم فتح الروم.');
         }
@@ -469,65 +688,75 @@ client.on('messageCreate', async message => {
         }
 
         // ==========================================
-        // أمر +help
+        // أمر +help (مقسم ومنظم بقوائم دقيقة)
         // ==========================================
         if (command === 'help') {
-            const totalCommandsCount = 27;
+            const totalCommandsCount = 41;
 
             const getEmbed = (page) => {
                 if (page === '1') {
                     return new EmbedBuilder()
                         .setColor('#5865F2')
-                        .setTitle('📜 قائمة المساعدة - قسم النظام، الإحصائيات والأونر')
-                        .setDescription(`إجمالي الأوامر في البوت: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة أدناه:`)
+                        .setTitle('📌 الأوامر العامة والمعلوماتية')
+                        .setDescription(`إجمالي الأوامر: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة أدناه:`)
                         .addFields(
-                            { name: '**`+afk [السبب]`**', value: '**تحديد حالتك كغائب وتنبيه من يمنشنك.**', inline: false },
-                            { name: '**`+رتب`**', value: '**عرض رتب السيرفر من الأقوى للأصغر.**', inline: false },
-                            { name: '**`+توب`**', value: '**عرض أكثر 10 أعضاء تفاعلاً اليوم.**', inline: false },
-                            { name: '**`+سيرفر`**', value: '**عرض معلومات السيرفر المفصلة.**', inline: false },
-                            { name: '**`+بنغ`**', value: '**معرفة سرعة استجابة البوت.**', inline: false }
+                            { name: '**`+status`**', value: 'إحصائيات البوت والسرعة (سريع / متوسط / بطيء).', inline: false },
+                            { name: '**`+afk [السبب]`**', value: 'تحديد حالتك كغائب.', inline: false },
+                            { name: '**`+سيرفر`**', value: 'معلومات السيرفر المفصلة.', inline: false },
+                            { name: '**`+servericon`**', value: 'عرض صورة السيرفر.', inline: false },
+                            { name: '**`+serverbanner`**', value: 'عرض بانر السيرفر.', inline: false },
+                            { name: '**`+بروفايل [@العضو]`**', value: 'معلومات العضو وتاريخ الانضمام.', inline: false },
+                            { name: '**`+صورة [@العضو]`**', value: 'عرض صورة بروفايل العضو.', inline: false },
+                            { name: '**`+رتب`**', value: 'عرض رتب السيرفر من الأقوى للأصغر.', inline: false },
+                            { name: '**`+توب` / `+topactive`**', value: 'عرض أكثر الأعضاء تفاعلاً ونشاطاً.', inline: false },
+                            { name: '**`+activity [@العضو]`**', value: 'معرفة حجم نشاطك وتفاعلك بالسيرفر.', inline: false },
+                            { name: '**`+firstmsg [@العضو]`**', value: 'جلب أول رسالة أرسلها الشخص في السيرفر.', inline: false },
+                            { name: '**`+بنغ`**', value: 'معرفة سرعة استجابة البوت.', inline: false }
                         )
-                        .setFooter({ text: 'القائمة الأولى | بواسطة ' + message.author.tag });
+                        .setFooter({ text: 'القسم الأول: العامة | بواسطة ' + message.author.tag });
                 } else if (page === '2') {
                     return new EmbedBuilder()
-                        .setColor('#5865F2')
-                        .setTitle('📜 قائمة المساعدة - قسم الإشراف وإدارة الرومات')
-                        .setDescription(`إجمالي الأوامر في البوت: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة أدناه:`)
+                        .setColor('#E67E22')
+                        .setTitle('🎮 الألعاب، الحظ، والتحديات')
+                        .setDescription(`اختر القسم المناسب من القائمة أدناه:`)
                         .addFields(
-                            { name: '**`+بان [@العضو]`**', value: '**حظر عضو من السيرفر.**', inline: false },
-                            { name: '**`+كيك [@العضو]`**', value: '**طرد عضو من السيرفر.**', inline: false },
-                            { name: '**`+تايم [@العضو] [الدقائق]`**', value: '**إعطاء ميوت مؤقت للعضو.**', inline: false },
-                            { name: '**`+انتايم [@العضو]`**', value: '**إزالة الميوت عن العضو.**', inline: false },
-                            { name: '**`+فكبان [الايدي]`**', value: '**فك البان عن العضو بالآي دي.**', inline: false },
-                            { name: '**`+مسح [العدد]`**', value: '**مسح رسائل الشات (1-100).**', inline: false },
-                            { name: '**`+قفل` / `+فتح`**', value: '**قفل أو فتح الشات الحالي.**', inline: false },
-                            { name: '**`+اخفاء` / `+اظهار`**', value: '**إخفاء أو إظهار الروم.**', inline: false }
+                            { name: '**`+luck [@العضو]`**', value: 'اختبار نسبة الحظ اليومي (بنسب عشوائية غير محدودة).', inline: false },
+                            { name: '**`+fortune`**', value: 'توقع عشوائي ومميز لمستقبلك اليوم.', inline: false },
+                            { name: '**`+challenge [@العضو]`**', value: 'بدء تحدي ممتع بينك وبين شخص آخر.', inline: false },
+                            { name: '**`+rep [@العضو]`**', value: 'إعطاء نقطة سمعة / Reputation لشخص.', inline: false },
+                            { name: '**`+repboard`**', value: 'عرض لوحة شرف السمعة والترتيب.', inline: false }
                         )
-                        .setFooter({ text: 'القائمة الثانية | بواسطة ' + message.author.tag });
+                        .setFooter({ text: 'القسم الثاني: الألعاب والحظ | بواسطة ' + message.author.tag });
                 } else if (page === '3') {
                     return new EmbedBuilder()
-                        .setColor('#5865F2')
-                        .setTitle('📜 قائمة المساعدة - قسم الرتب والأدوات الإضافية')
-                        .setDescription(`إجمالي الأوامر في البوت: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة أدناه:`)
+                        .setColor('#2ECC71')
+                        .setTitle('🛡️ الإشراف، إدارة الرومات والأعضاء')
+                        .setDescription(`اختر القسم المناسب من القائمة أدناه:`)
                         .addFields(
-                            { name: '**`+رول [@العضو] [@الرول]`**', value: '**تبديل الرتبة (إضافة أو إزالة).**', inline: false },
-                            { name: '**`+رول-جماعي [@الرول]`**', value: '**إعطاء رول معينة لجميع أعضاء السيرفر دفعة واحدة.**', inline: false },
-                            { name: '**`+مسابقة [الوقت] [الجائزة]`**', value: '**بدء مسابقة تفاعلية بزر المشاركة 🎉.**', inline: false },
-                            { name: '**`+greet [@العضو]`**', value: '**ترحيب سريع يمنشن العضو ويحذف الرسالة.**', inline: false },
-                            { name: '**`+صرف [المبلغ] [العملة]`**', value: '**تحويل العملات بالسعر المخصص والدقيق إلى الدولار.**', inline: false },
-                            { name: '**`+طوارئ` / `+فك-طوارئ`**', value: '**قفل أو فتح جميع رومات السيرفر دفعة واحدة.**', inline: false }
+                            { name: '**`+warn [@العضو] [السبب]`**', value: 'تحذير شخص وإرسال التفاصيل له بالخاص.', inline: false },
+                            { name: '**`+slowmode [الثواني]`**', value: 'ضبط الوضع البطيء للشات (Slowmode).', inline: false },
+                            { name: '**`+nick [@العضو] [الاسم]`**', value: 'تغيير نك نيم الشخص أو إزالته وتصفيره.', inline: false },
+                            { name: '**`+بان` / `+كيك` / `+فكبان`**', value: 'إدارة الحظر والطرد للأعضاء.', inline: false },
+                            { name: '**`+تايم` / `+انتايم`**', value: 'إعطاء ميوت مؤقت وإزالته.', inline: false },
+                            { name: '**`+مسح [العدد]`**', value: 'مسح رسائل الشات (1-100).', inline: false },
+                            { name: '**`+قفل` / `+فتح` / `+اخفاء` / `+اظهار`**', value: 'التحكم بخصائص الرومات.', inline: false },
+                            { name: '**`+رول` / `+رول-جماعي`**', value: 'منح الرتب للأعضاء بشكل فردي أو جماعي.', inline: false },
+                            { name: '**`+مسابقة [الوقت] [الجائزة]`**', value: 'بدء مسابقة تفاعلية بزر مشاركة 🎉.', inline: false },
+                            { name: '**`+صرف [المبلغ] [العملة]`**', value: 'تحويل العملات (يورو، جنيه، ليرة، ريال) بدقة.', inline: false }
                         )
-                        .setFooter({ text: 'القائمة الثالثة | بواسطة ' + message.author.tag });
+                        .setFooter({ text: 'القسم الثالث: الإشراف والأدوات | بواسطة ' + message.author.tag });
                 } else if (page === '4') {
                     return new EmbedBuilder()
                         .setColor('#FF0000')
-                        .setTitle('👑 قائمة المساعدة - أوامر الأอนر الخاصة')
-                        .setDescription(`هذه القائمة مخصصة **لصاحب السيرفر (الأونر)** فقط!\n\nالأوامر المتاحة هنا:`)
+                        .setTitle('👑 قائمة الأونر الخاصة (صاحب السيرفر)')
+                        .setDescription(`هذه القائمة مخصصة لصاحب السيرفر فقط!\n\nالأوامر المتاحة هنا:`)
                         .addFields(
-                            { name: '**`+ايقاف-السستم`**', value: '**إيقاف نظام البوت بشكل كامل.**', inline: false },
-                            { name: '**`+تشغيل-السستم`**', value: '**إعادة تفعيل وتشغيل نظام البوت.**', inline: false }
+                            { name: '**`+طوارئ`**', value: 'قفل جميع رومات السيرفر دفعة واحدة.', inline: false },
+                            { name: '**`+فك-طوارئ`**', value: 'إلغاء الطوارئ وفتح جميع الرومات.', inline: false },
+                            { name: '**`+ايقاف-السستم`**', value: 'إيقاف نظام البوت بشكل كامل.', inline: false },
+                            { name: '**`+تشغيل-السستم`**', value: 'إعادة تفعيل وتشغيل نظام البوت.', inline: false }
                         )
-                        .setFooter({ text: 'قائمة الأونر | بواسطة ' + message.author.tag });
+                        .setFooter({ text: 'القسم الرابع: الأونر | بواسطة ' + message.author.tag });
                 }
             };
 
@@ -538,10 +767,10 @@ client.on('messageCreate', async message => {
                         .setPlaceholder('📂 اضغط هنا لاختيار القسم المطلوب...')
                         .setDisabled(disabled)
                         .addOptions([
-                            { label: 'قسم النظام والإحصائيات', description: 'عرض أوامر AFK، توب الرسائل، ومعلومات السيرفر', value: '1', emoji: '📊' },
-                            { label: 'قسم الإشراف والرومات', description: 'عرض أوامر البان، الكيك، الميوت، وقفل الرومات', value: '2', emoji: '🛡️' },
-                            { label: 'قسم الرتب والأدوات والصرف', description: 'عرض أوامر الرول، المسابقات، تحويل العملات، والترحيب', value: '3', emoji: '⚙️' },
-                            { label: 'قائمة الأونر (صاحب السيرفر)', description: 'مخصصة لصاحب السيرفر فقط لإيقاف وتشغيل النظام', value: '4', emoji: '👑' }
+                            { label: 'الأوامر العامة والمعلوماتية', description: 'عرض Status، البروفايل، أول رسالة، السيرفر', value: '1', emoji: '📌' },
+                            { label: 'الألعاب، الحظ، والتحديات', description: 'عرض Luck، التوقعات، التحديات، والسمعة Rep', value: '2', emoji: '🎲' },
+                            { label: 'الإشراف وإدارة الرومات', description: 'عرض Warn، Slowmode، Nick، البان، الميوت', value: '3', emoji: '🛡️' },
+                            { label: 'قائمة الأونر (صاحب السيرفر)', description: 'أوامر الطوارئ وإيقاف وتشغيل النظام', value: '4', emoji: '👑' }
                         ])
                 );
             };
