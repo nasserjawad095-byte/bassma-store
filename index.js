@@ -52,7 +52,7 @@ client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
 });
 
-// ترحيب تلقائي بالأعضاء الجدد فقط عند دخولهم السيرفر
+// ترحيب تلقائي بالأعضاء الجدد عند دخولهم السيرفر
 client.on('guildMemberAdd', async member => {
     try {
         const welcomeChannel = member.guild.systemChannel;
@@ -68,7 +68,7 @@ client.on('messageCreate', async message => {
     try {
         if (!message.guild || message.author.bot) return;
 
-        // نظام الشراء المتقدم (خطوة بخطوة)
+        // نظام الشراء المتقدم (خطوة بخطوة - تم إصلاحه وتفعيل الـ Collector بشكل صحيح)
         if (activePurchases.has(message.author.id)) {
             const purchaseData = activePurchases.get(message.author.id);
             if (message.channel.id === purchaseData.channelId) {
@@ -168,7 +168,7 @@ client.on('messageCreate', async message => {
             return message.reply(`💤 تم ضبط حالتك إلى **غائب (AFK)**. السبب: **${reason}**`);
         }
 
-        // +greet (ترحيب سريع يمنشن العضو ويحذف رسالة الأمر والرد)
+        // +greet (ترحيب يمنشن العضو، يحذف رسالة الأمر، ويحذف رد الترحيب تلقائياً)
         if (command === 'greet') {
             const target = message.mentions.members.first() || message.member;
             await message.delete().catch(() => {});
@@ -177,7 +177,7 @@ client.on('messageCreate', async message => {
             return;
         }
 
-        // +شراء (قائمة منسدلة باللغة الإنجليزية لطرق الدفع)
+        // +شراء (قائمة منسدلة لطرق الدفع - تم تصحيح طريقة التقاط التفاعل)
         if (command === 'شراء' || command === 'buy') {
             const buyEmbed = new EmbedBuilder()
                 .setColor('#5865F2')
@@ -186,7 +186,7 @@ client.on('messageCreate', async message => {
 
             const buyMenu = new ActionRowBuilder().addComponents(
                 new StringSelectMenuBuilder()
-                    .setCustomId('purchase_menu')
+                    .setCustomId('purchase_menu_' + message.author.id)
                     .setPlaceholder('Select Payment Method...')
                     .addOptions([
                         { label: 'Apple Pay', description: 'Pay securely using Apple Pay', value: 'Apple Pay', emoji: '' },
