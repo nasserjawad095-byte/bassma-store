@@ -14,6 +14,7 @@ let systemActive = true;
 
 const afkUsers = new Map();
 const dailyMessages = new Map();
+const activePurchases = new Map(); // لحفظ جلسات الشراء الجارية
 
 // دالة تحويل الوقت (بدون الحاجة لمكتبة خارجية لتجنب أي كراش)
 function parseDuration(timeStr) {
@@ -38,8 +39,40 @@ client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
 });
 
+// ترحيب تلقائي عند دخول عضو جديد للسيرفر (بالإضافة لأمر +greet)
+client.on('guildMemberAdd', async member => {
+    const welcomeChannel = member.guild.systemChannel;
+    if (!welcomeChannel) return;
+    const msg = await welcomeChannel.send(`> أهلاً بك يا ${member} في سيرفر **${member.guild.name}**! نورتنا 🎉`);
+    setTimeout(() => msg.delete().catch(() => {}), 7000);
+});
+
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
+
+    // نظام استكمال عملية الشراء (إذا كان المستخدم يكتب ماذا يريد بعد اختيار طريقة الدفع)
+    if (activePurchases.has(message.author.id)) {
+        const purchaseData = activePurchases.get(message.author.id);
+        if (message.channel.id === purchaseData.channelId) {
+            const desiredItem = message.content;
+            activePurchases.delete(message.author.id);
+
+            await message.delete().catch(() => {});
+
+            const receiptEmbed = new EmbedBuilder()
+                .setColor('#00FF00')
+                .setTitle('🛒 New Purchase Request / طلب شراء جديد')
+                .addFields(
+                    { name: '👤 Buyer / المشتري', value: `${message.author}`, inline: true },
+                    { name: '💳 Payment Method / طرئة الدفع', value: `\`${purchaseData.method}\``, inline: true },
+                    { name: '📦 Desired Item / الطلب', value: `\`\`\`${desiredItem}\`\`\``, inline: false }
+                )
+                .setTimestamp()
+                .setFooter({ text: 'Thank you for your purchase!' });
+
+            return message.channel.send({ embeds: [receiptEmbed] });
+        }
+    }
 
     // نظام الـ AFK
     if (afkUsers.has(message.author.id)) {
@@ -83,6 +116,56 @@ client.on('messageCreate', async message => {
         const reason = args.join(' ') || 'بدون سبب';
         afkUsers.set(message.author.id, reason);
         return message.reply(`💤 تم ضبط حالتك إلى **غائب (AFK)**. السبب: **${reason}**`);
+    }
+
+    // +greet (ترحيب سريع بنفس الروم يمنشنه وتتم مسح رسالة الأمر والرد)
+    if (command === 'greet') {
+        const target = message.mentions.members.first() || message.member;
+        await message.delete().catch(() => {});
+        const greetMsg = await message.channel.send(`> مرحباً بك يا ${target} في سيرفرنا! نورت الروم ✨`);
+        setTimeout(() => greetMsg.delete().catch(() => {}), 5000);
+        return;
+    }
+
+    // +شراء (قائمة منسدلة باللغة الإنجليزية لطرق الدفع)
+    if (command === 'شراء' || command === 'buy') {
+        const buyEmbed = new EmbedBuilder()
+            .setColor('#5865F2')
+            .setTitle('🛒 Store Purchase System')
+            .setDescription('Please select your preferred payment method from the menu below:');
+
+        const buyMenu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('purchase_menu')
+                .setPlaceholder('Select Payment Method...')
+                .addOptions([
+                    { label: 'Apple Pay', description: 'Pay securely using Apple Pay', value: 'Apple Pay', emoji: '' },
+                    { label: 'Bitcoin (BTC)', description: 'Pay with Bitcoin cryptocurrency', value: 'Bitcoin (BTC)', emoji: '₿' },
+                    { label: 'Ethereum (ETH)', description: 'Pay with Ethereum cryptocurrency', value: 'Ethereum (ETH)', emoji: 'Ξ' },
+                    { label: 'USDT (Tether)', description: 'Pay using USDT stablecoin', value: 'USDT (Tether)', emoji: '💵' },
+                    { label: 'Other Payment Method', description: 'Contact staff for alternative methods', value: 'Other Payment Method', emoji: '⚙️' }
+                ])
+        );
+
+        const sentMsg = await message.reply({ embeds: [buyEmbed], components: [buyMenu] });
+
+        const collector = sentMsg.createMessageComponentCollector({ time: 60000 });
+
+        collector.on('collect', async i => {
+            if (i.user.id !== message.author.id) {
+                return i.reply({ content: '❌ This menu is not for you!', ephemeral: true });
+            }
+
+            const selectedMethod = i.values[0];
+            activePurchases.set(i.user.id, { method: selectedMethod, channelId: message.channel.id });
+
+            await i.update({
+                content: `✅ You selected **${selectedMethod}**. Now please type **what you want to buy** in this chat:`,
+                embeds: [],
+                components: []
+            });
+        });
+        return;
     }
 
     // +رتب (عرض رتب السيرفر من الأقوى للأصغر)
@@ -223,7 +306,7 @@ client.on('messageCreate', async message => {
         }
     }
 
-    // +مسابقة (Giveaway مرتبطة بزر تفاعلي وتوقيت مرن مثل 10m أو 1h أو 1d)
+    // +مسابقة (Giveaway)
     if (command === 'مسابقة') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply('❌ لا تمتلك صلاحية إدارة السيرفر.');
         const durationArg = args[0];
@@ -318,7 +401,7 @@ client.on('messageCreate', async message => {
         setTimeout(() => reply.delete().catch(() => {}), 3000);
     }
 
-    // +رول-جماعي (إعطاء رول لجميع أعضاء السيرفر)
+    // +رول-جماعي
     if (command === 'رول-جماعي') {
         if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply('❌ هذا الأمر يتطلب صلاحية `Administrator`.');
         const role = message.mentions.roles.first();
@@ -341,7 +424,7 @@ client.on('messageCreate', async message => {
         }
     }
 
-    // إدارة الرتب الفردية
+    // رول فردي
     if (command === 'رول') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply('❌ لا تمتلك صلاحية إدارة الرتب.');
         const target = message.mentions.members.first();
@@ -360,7 +443,6 @@ client.on('messageCreate', async message => {
         return message.reply(`🏓 سرعة استجابة البوت: **${client.ws.ping}ms**`);
     }
 
-    // الأوامر الإضافية
     if (command === 'قول') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply('❌ لا تمتلك صلاحية.');
         const text = args.join(' ');
@@ -398,10 +480,10 @@ client.on('messageCreate', async message => {
     }
 
     // ==========================================
-    // أمر +help (مع حماية قائمة الأونر وتأمينها تماماً)
+    // أمر +help (المحدث مع قسم الشراء الجديد)
     // ==========================================
     if (command === 'help') {
-        const totalCommandsCount = 25;
+        const totalCommandsCount = 27;
 
         const getEmbed = (page) => {
             if (page === '1') {
@@ -442,10 +524,9 @@ client.on('messageCreate', async message => {
                         { name: '**`+رول [@العضو] [@الرول]`**', value: '**تبديل الرتبة (إضافة أو إزالة).**', inline: false },
                         { name: '**`+رول-جماعي [@الرول]`**', value: '**إعطاء رول معينة لجميع أعضاء السيرفر دفعة واحدة.**', inline: false },
                         { name: '**`+مسابقة [الوقت] [الجائزة]`**', value: '**بدء مسابقة تفاعلية بزر المشاركة 🎉.**', inline: false },
-                        { name: '**`+قول [النص]`**', value: '**تكرار رسالتك عبر البوت.**', inline: false },
-                        { name: '**`+طوارئ` / `+فك-طوارئ`**', value: '**قفل أو فتح جميع رومات السيرفر دفعة واحدة.**', inline: false },
-                        { name: '**`+بطيء [الثواني]`**', value: '**تحديد سرعة الشات البطيء للروم.**', inline: false },
-                        { name: '**`+بروفايل` / `+صورة`**', value: '**عرض معلومات وبروفايل الأعضاء.**', inline: false }
+                        { name: '**`+greet [@العضو]`**', value: '**ترحيب سريع يمنشن العضو ويحذف الرسالة.**', inline: false },
+                        { name: '**`+شراء` / `+buy`**', value: '**قائمة متجر لطلب المنتجات عبر Apple Pay والعملات.**', inline: false },
+                        { name: '**`+طوارئ` / `+فك-طوارئ`**', value: '**قفل أو فتح جميع رومات السيرفر دفعة واحدة.**', inline: false }
                     )
                     .setFooter({ text: 'القائمة الثالثة | بواسطة ' + message.author.tag });
             } else if (page === '4') {
@@ -468,30 +549,10 @@ client.on('messageCreate', async message => {
                     .setPlaceholder('📂 اضغط هنا لاختيار القسم المطلوب...')
                     .setDisabled(disabled)
                     .addOptions([
-                        {
-                            label: 'قسم النظام والإحصائيات',
-                            description: 'عرض أوامر AFK، توب الرسائل، ومعلومات السيرفر',
-                            value: '1',
-                            emoji: '📊'
-                        },
-                        {
-                            label: 'قسم الإشراف والرومات',
-                            description: 'عرض أوامر البان، الكيك، الميوت، وقفل الرومات',
-                            value: '2',
-                            emoji: '🛡️'
-                        },
-                        {
-                            label: 'قسم الرتب والأدوات',
-                            description: 'عرض أوامر الرول الجماعي، المسابقات، والطوارئ',
-                            value: '3',
-                            emoji: '⚙️'
-                        },
-                        {
-                            label: 'قائمة الأونر (صاحب السيرفر)',
-                            description: 'مخصصة لصاحب السيرفر فقط لإيقاف وتشغيل النظام',
-                            value: '4',
-                            emoji: '👑'
-                        }
+                        { label: 'قسم النظام والإحصائيات', description: 'عرض أوامر AFK، توب الرسائل، ومعلومات السيرفر', value: '1', emoji: '📊' },
+                        { label: 'قسم الإشراف والرومات', description: 'عرض أوامر البان، الكيك، الميوت، وقفل الرومات', value: '2', emoji: '🛡️' },
+                        { label: 'قسم الرتب والأدوات والشراء', description: 'عرض أوامر الرول، المسابقات، الشراء، والترحيب', value: '3', emoji: '⚙️' },
+                        { label: 'قائمة الأونر (صاحب السيرفر)', description: 'مخصصة لصاحب السيرفر فقط لإيقاف وتشغيل النظام', value: '4', emoji: '👑' }
                     ])
             );
         };
@@ -503,7 +564,6 @@ client.on('messageCreate', async message => {
         collector.on('collect', async i => {
             const selectedValue = i.values[0];
 
-            // التحقق إذا حاول أي شخص غير الأونر فتح قائمة الأونر
             if (selectedValue === '4' && i.user.id !== message.guild.ownerId) {
                 return i.reply({ content: '❌ **غير متوفر!** هذه القائمة مخصصة لصاحب السيرفر (الأونر) فقط.', ephemeral: true });
             }
