@@ -15,21 +15,21 @@ let systemActive = true;
 const afkUsers = new Map();
 const dailyMessages = new Map();
 
-// أسعار الصرف التقريبية للتحويل إلى الدولار ($)
+// أسعار الصرف الحقيقية والدقيقة مقابل الدولار الواحد ($1)
 const exchangeRates = {
-    'ريال': 0.27,
-    'sar': 0.27,
-    'درهم': 0.27,
-    'aed': 0.27,
-    'يورو': 1.08,
-    'eur': 1.08,
+    'ريال': 3.75,       // 1 دولار = 3.75 ريال سعودي (إذن الريال الواحد = 0.266 دولار)
+    'sar': 3.75,
+    'درهم': 3.67,      // 1 دولار = 3.67 درهم إماراتي
+    'aed': 3.67,
+    'يورو': 0.92,      // 1 يورو = 1.08 دولار تقريباً (أو سعر الصرف المعاكس)
+    'eur': 0.92,
+    'ليرة': 89500,     // 1 دولار = 89,500 ليرة لبنانية تقريباً
+    'lbp': 89500,
+    'جنيه': 48.5,      // 1 دولار = 48.5 جنيه مصري تقريباً
+    'egp': 48.5,
     'دولار': 1.0,
     'usd': 1.0,
-    'usdt': 1.0,
-    'جنيه': 0.021,
-    'egp': 0.021,
-    'ليرة': 0.000011,
-    'try': 0.029
+    'usdt': 1.0
 };
 
 // دالة تحويل الوقت بشكل آمن لتجنب الكراش
@@ -113,7 +113,7 @@ client.on('messageCreate', async message => {
             return message.reply(`💤 تم ضبط حالتك إلى **غائب (AFK)**. السبب: **${reason}**`);
         }
 
-        // +greet (ترحيب يمنشن العضو، يحذف رسالة الأمر، ويحذف رد الترحيب تلقائياً)
+        // +greet
         if (command === 'greet') {
             const target = message.mentions.members.first() || message.member;
             await message.delete().catch(() => {});
@@ -122,29 +122,41 @@ client.on('messageCreate', async message => {
             return;
         }
 
-        // +تحويل-مبلغ (أمر مباشر لتحويل أي مبلغ وأي عملة إلى دولار - مثال: +تحويل-مبلغ 200 ريال)
-        if (command === 'تحويل-مبلغ') {
+        // +صرف (أمر قصير ومباشر لتحويل العملات بسعر صرف حقيقي دقيق إلى الدولار)
+        if (command === 'صرف' || command === 'تحويل') {
             const amount = parseFloat(args[0]);
             const currency = args[1] ? args[1].toLowerCase() : '';
 
             if (isNaN(amount) || !currency) {
-                return message.reply('⚠️ **طريقة الاستخدام الصحيحة:**\n`+تحويل-مبلغ [الرقم] [العملة]`\nمثال: `+تحويل-مبلغ 200 ريال` أو `+تحويل-مبلغ 50 يورو`');
+                return message.reply('⚠️ **طريقة الاستخدام الصحيحة:**\n`+صرف [المبلغ] [العملة]`\nمثال: `+صرف 200 ريال` أو `+صرف 100000 ليرة`');
             }
 
-            // حساب السعر (إذا لم تكن العملة موجودة في القائمة، يعتبرها الدولار كافتراضي أو يعطي نسبة 1.0)
-            const rate = exchangeRates[currency] || 1.0;
-            const convertedUSD = (amount * rate).toFixed(2);
+            const baseRate = exchangeRates[currency];
+            if (!baseRate) {
+                return message.reply(`❌ عذراً، العملة **"${currency}"** غير متوفرة في القائمة حالياً.`);
+            }
+
+            let convertedUSD;
+            // العملات التي تكون قيمتها أضعف بكثير من الدولار (مثل الليرة والجنية) يتم القسمة عليها، والعملات الأقوى (مثل اليورو) يتم الضرب أو المعاملة الخاصة
+            if (currency === 'ليرة' || currency === 'lbp' || currency === 'جنيه' || currency === 'egp') {
+                convertedUSD = (amount / baseRate).toFixed(2);
+            } else if (currency === 'يورو' || currency === 'eur') {
+                convertedUSD = (amount * 1.08).toFixed(2); // مثال اليورو الواحد يعادل 1.08 دولار
+            } else {
+                // العملات مثل الريال والددرهم (الدولار الواحد = X ريال)
+                convertedUSD = (amount / baseRate).toFixed(2);
+            }
 
             const convertEmbed = new EmbedBuilder()
                 .setColor('#00FF00')
-                .setTitle('💱 تحويل العملات إلى الدولار')
+                .setTitle('💱 تحويل العملات بسعر السوق')
                 .addFields(
-                    { name: '👤 بواسطة', value: `${message.author}`, inline: true },
-                    { name: '💵 المبلغ المدخل', value: `\`${amount} ${currency}\``, inline: true },
+                    { name: '👤 العضو', value: `${message.author}`, inline: true },
+                    { name: '💵 المبلغ', value: `\`${amount} ${currency}\``, inline: true },
                     { name: '💲 السعر بالدولار', value: `**$${convertedUSD} USD**`, inline: false }
                 )
                 .setTimestamp()
-                .setFooter({ text: 'Currency Converter System' });
+                .setFooter({ text: 'Accurate Currency Converter' });
 
             return message.reply({ embeds: [convertEmbed] });
         }
@@ -503,7 +515,7 @@ client.on('messageCreate', async message => {
                             { name: '**`+رول-جماعي [@الرول]`**', value: '**إعطاء رول معينة لجميع أعضاء السيرفر دفعة واحدة.**', inline: false },
                             { name: '**`+مسابقة [الوقت] [الجائزة]`**', value: '**بدء مسابقة تفاعلية بزر المشاركة 🎉.**', inline: false },
                             { name: '**`+greet [@العضو]`**', value: '**ترحيب سريع يمنشن العضو ويحذف الرسالة.**', inline: false },
-                            { name: '**`+تحويل-مبلغ [الرقم] [العملة]`**', value: '**أمر مباشر لتحويل أي مبلغ وأي عملة إلى الدولار.**', inline: false },
+                            { name: '**`+صرف [المبلغ] [العملة]`**', value: '**تحويل العملات بسعر الصرف الحقيقي والدقيق إلى الدولار.**', inline: false },
                             { name: '**`+طوارئ` / `+فك-طوارئ`**', value: '**قفل أو فتح جميع رومات السيرفر دفعة واحدة.**', inline: false }
                         )
                         .setFooter({ text: 'القائمة الثالثة | بواسطة ' + message.author.tag });
@@ -529,7 +541,7 @@ client.on('messageCreate', async message => {
                         .addOptions([
                             { label: 'قسم النظام والإحصائيات', description: 'عرض أوامر AFK، توب الرسائل، ومعلومات السيرفر', value: '1', emoji: '📊' },
                             { label: 'قسم الإشراف والرومات', description: 'عرض أوامر البان، الكيك، الميوت، وقفل الرومات', value: '2', emoji: '🛡️' },
-                            { label: 'قسم الرتب والأدوات والتحويل', description: 'عرض أوامر الرول، المسابقات، تحويل العملات، والترحيب', value: '3', emoji: '⚙️' },
+                            { label: 'قسم الرتب والأدوات والصرف', description: 'عرض أوامر الرول، المسابقات، تحويل العملات، والترحيب', value: '3', emoji: '⚙️' },
                             { label: 'قائمة الأونر (صاحب السيرفر)', description: 'مخصصة لصاحب السيرفر فقط لإيقاف وتشغيل النظام', value: '4', emoji: '👑' }
                         ])
                 );
