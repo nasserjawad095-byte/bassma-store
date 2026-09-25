@@ -15,18 +15,18 @@ let systemActive = true;
 const afkUsers = new Map();
 const dailyMessages = new Map();
 
-// أسعار الصرف الحقيقية والدقيقة مقابل الدولار الواحد ($1)
+// أسعار الصرف المحدثة بناءً على طلبك
 const exchangeRates = {
-    'ريال': 3.75,       // 1 دولار = 3.75 ريال سعودي (إذن الريال الواحد = 0.266 دولار)
+    'ريال': 3.75,       // 1 دولار = 3.75 ريال سعودي
     'sar': 3.75,
     'درهم': 3.67,      // 1 دولار = 3.67 درهم إماراتي
     'aed': 3.67,
-    'يورو': 0.92,      // 1 يورو = 1.08 دولار تقريباً (أو سعر الصرف المعاكس)
-    'eur': 0.92,
-    'ليرة': 89500,     // 1 دولار = 89,500 ليرة لبنانية تقريباً
+    'يورو': 1.1398,    // بناءً على قاعدة 50 يورو = 56.99 دولار
+    'eur': 1.1398,
+    'ليرة': 89500,     // 1 دولار = 89,500 ليرة لبنانية
     'lbp': 89500,
-    'جنيه': 48.5,      // 1 دولار = 48.5 جنيه مصري تقريباً
-    'egp': 48.5,
+    'جنيه': 42,        // بناءً على طلبك: 1 دولار = 42 جنيه
+    'egp': 42,
     'دولار': 1.0,
     'usd': 1.0,
     'usdt': 1.0
@@ -122,13 +122,13 @@ client.on('messageCreate', async message => {
             return;
         }
 
-        // +صرف (أمر قصير ومباشر لتحويل العملات بسعر صرف حقيقي دقيق إلى الدولار)
+        // +صرف (تحويل العملات بناءً على الأسعار المطلوبة)
         if (command === 'صرف' || command === 'تحويل') {
             const amount = parseFloat(args[0]);
             const currency = args[1] ? args[1].toLowerCase() : '';
 
             if (isNaN(amount) || !currency) {
-                return message.reply('⚠️ **طريقة الاستخدام الصحيحة:**\n`+صرف [المبلغ] [العملة]`\nمثال: `+صرف 200 ريال` أو `+صرف 100000 ليرة`');
+                return message.reply('⚠️ **طريقة الاستخدام الصحيحة:**\n`+صرف [المبلغ] [العملة]`\nمثال: `+صرف 50 يورو` أو `+صرف 1000 جنيه`');
             }
 
             const baseRate = exchangeRates[currency];
@@ -137,26 +137,25 @@ client.on('messageCreate', async message => {
             }
 
             let convertedUSD;
-            // العملات التي تكون قيمتها أضعف بكثير من الدولار (مثل الليرة والجنية) يتم القسمة عليها، والعملات الأقوى (مثل اليورو) يتم الضرب أو المعاملة الخاصة
+            // الليرة والجنيه يتم القسمة عليهما، اليورو والعملات القوية أو المعاكسة يتم التعامل معها بدقة
             if (currency === 'ليرة' || currency === 'lbp' || currency === 'جنيه' || currency === 'egp') {
                 convertedUSD = (amount / baseRate).toFixed(2);
             } else if (currency === 'يورو' || currency === 'eur') {
-                convertedUSD = (amount * 1.08).toFixed(2); // مثال اليورو الواحد يعادل 1.08 دولار
+                convertedUSD = (amount * baseRate).toFixed(2); // بما أن اليورو هنا يمثل قيمة الدولار الواحد للقطعة الواحدة
             } else {
-                // العملات مثل الريال والددرهم (الدولار الواحد = X ريال)
                 convertedUSD = (amount / baseRate).toFixed(2);
             }
 
             const convertEmbed = new EmbedBuilder()
                 .setColor('#00FF00')
-                .setTitle('💱 تحويل العملات بسعر السوق')
+                .setTitle('💱 تحويل العملات بالسعر المخصص')
                 .addFields(
                     { name: '👤 العضو', value: `${message.author}`, inline: true },
                     { name: '💵 المبلغ', value: `\`${amount} ${currency}\``, inline: true },
                     { name: '💲 السعر بالدولار', value: `**$${convertedUSD} USD**`, inline: false }
                 )
                 .setTimestamp()
-                .setFooter({ text: 'Accurate Currency Converter' });
+                .setFooter({ text: 'Custom Currency Converter' });
 
             return message.reply({ embeds: [convertEmbed] });
         }
@@ -515,14 +514,14 @@ client.on('messageCreate', async message => {
                             { name: '**`+رول-جماعي [@الرول]`**', value: '**إعطاء رول معينة لجميع أعضاء السيرفر دفعة واحدة.**', inline: false },
                             { name: '**`+مسابقة [الوقت] [الجائزة]`**', value: '**بدء مسابقة تفاعلية بزر المشاركة 🎉.**', inline: false },
                             { name: '**`+greet [@العضو]`**', value: '**ترحيب سريع يمنشن العضو ويحذف الرسالة.**', inline: false },
-                            { name: '**`+صرف [المبلغ] [العملة]`**', value: '**تحويل العملات بسعر الصرف الحقيقي والدقيق إلى الدولار.**', inline: false },
+                            { name: '**`+صرف [المبلغ] [العملة]`**', value: '**تحويل العملات بالسعر المخصص والدقيق إلى الدولار.**', inline: false },
                             { name: '**`+طوارئ` / `+فك-طوارئ`**', value: '**قفل أو فتح جميع رومات السيرفر دفعة واحدة.**', inline: false }
                         )
                         .setFooter({ text: 'القائمة الثالثة | بواسطة ' + message.author.tag });
                 } else if (page === '4') {
                     return new EmbedBuilder()
                         .setColor('#FF0000')
-                        .setTitle('👑 قائمة المساعدة - أوامر الأونر الخاصة')
+                        .setTitle('👑 قائمة المساعدة - أوامر الأอนر الخاصة')
                         .setDescription(`هذه القائمة مخصصة **لصاحب السيرفر (الأونر)** فقط!\n\nالأوامر المتاحة هنا:`)
                         .addFields(
                             { name: '**`+ايقاف-السستم`**', value: '**إيقاف نظام البوت بشكل كامل.**', inline: false },
