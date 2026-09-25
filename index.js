@@ -9,6 +9,14 @@ const client = new Client({
     ]
 });
 
+// حماية البوت من أي كراش مفاجئ
+process.on('unhandledRejection', error => {
+    console.error('Unhandled promise rejection:', error);
+});
+process.on('uncaughtException', error => {
+    console.error('Uncaught exception:', error);
+});
+
 const PREFIX = '+';
 let systemActive = true;
 
@@ -130,6 +138,37 @@ client.on('messageCreate', async message => {
                 )
                 .setTimestamp();
             return message.reply({ embeds: [statusEmbed] });
+        }
+
+        // أمر الاستدعاء الجديد (+استدعاء أو +c)
+        if (command === 'استدعاء' || command === 'c') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+                return message.reply('❌ ليس لديك صلاحية لاستخدام أمر الاستدعاء.');
+            }
+
+            const targetUser = message.mentions.users.first();
+            const reason = args.slice(1).join(' ') || 'بدون سبب محدد';
+
+            if (!targetUser) {
+                return message.reply('⚠️ يرجى استخدام الأمر بالشكل الصحيح: \n`+استدعاء @العضو [السبب]` أو `+c @العضو [السبب]`');
+            }
+
+            try {
+                const embedDM = new EmbedBuilder()
+                    .setColor('#FF0000')
+                    .setTitle('🚨 تنبيه استدعاء إداري')
+                    .addFields(
+                        { name: '🌐 السيرفر', value: message.guild.name, inline: true },
+                        { name: '👤 بواسطة الإداري', value: `<@${message.author.id}>`, inline: true },
+                        { name: '📌 السبب', value: reason }
+                    )
+                    .setTimestamp();
+
+                await targetUser.send({ embeds: [embedDM] });
+                return message.reply({ embeds: [new EmbedBuilder().setColor('#00FF00'].setDescription(`✅ تم إرسال الاستدعاء إلى ${targetUser} في الخاص بنجاح.`)] });
+            } catch (e) {
+                return message.reply(`⚠️ تم محاولة استدعاء ${targetUser}، ولكن تعذر إرسال رسالة خاصة له (خاصه مقفل).`);
+            }
         }
 
         // 2. +warn (تحذير شخص بالخاص)
@@ -701,10 +740,10 @@ client.on('messageCreate', async message => {
         }
 
         // ==========================================
-        // أمر +help (مقسم ومنظم مع زيادة وقت البقاء إلى 3 دقائق)
+        // أمر +help
         // ==========================================
         if (command === 'help') {
-            const totalCommandsCount = 41;
+            const totalCommandsCount = 42;
 
             const getEmbed = (page) => {
                 if (page === '1') {
@@ -713,63 +752,52 @@ client.on('messageCreate', async message => {
                         .setTitle('📌 الأوامر العامة والمعلوماتية')
                         .setDescription(`إجمالي الأوامر: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة أدناه:`)
                         .addFields(
-                            { name: '**`+status`**', value: 'إحصائيات البوت والسرعة (سريع / متوسط / بطيء).', inline: false },
+                            { name: '**`+status`**', value: 'إحصائيات البوت والسرعة.', inline: false },
                             { name: '**`+afk [السبب]`**', value: 'تحديد حالتك كغائب.', inline: false },
                             { name: '**`+سيرفر`**', value: 'معلومات السيرفر المفصلة.', inline: false },
-                            { name: '**`+servericon`**', value: 'عرض صورة السيرفر.', inline: false },
-                            { name: '**`+serverbanner`**', value: 'عرض بانر السيرفر.', inline: false },
+                            { name: '**`+servericon` / `+serverbanner`**', value: 'عرض صورة وبانر السيرفر.', inline: false },
                             { name: '**`+بروفايل [@العضو]`**', value: 'معلومات العضو وتاريخ الانضمام.', inline: false },
                             { name: '**`+صورة [@العضو]`**', value: 'عرض صورة بروفايل العضو.', inline: false },
-                            { name: '**`+رتب`**', value: 'عرض رتب السيرفر من الأقوى للأصغر.', inline: false },
-                            { name: '**`+توب` / `+topactive`**', value: 'عرض أكثر الأعضاء تفاعلاً ونشاطاً.', inline: false },
-                            { name: '**`+activity [@العضو]`**', value: 'معرفة حجم نشاطك وتفاعلك بالسيرفر.', inline: false },
-                            { name: '**`+firstmsg [@العضو]`**', value: 'جلب أول رسالة أرسلها الشخص في السيرفر.', inline: false },
-                            { name: '**`+بنغ`**', value: 'معرفة سرعة استجابة البوت.', inline: false }
-                        )
-                        .setFooter({ text: 'القسم الأول: العامة | بواسطة ' + message.author.tag });
+                            { name: '**`+رتب`**', value: 'عرض رتب السيرفر.', inline: false },
+                            { name: '**`+توب` / `+topactive`**', value: 'عرض الأعضاء الأكثر تفاعلاً.', inline: false },
+                            { name: '**`+activity [@العضو]`**', value: 'معرفة حجم نشاطك وتفاعلك.', inline: false },
+                            { name: '**`+firstmsg [@العضو]`**', value: 'جلب أول رسالة أرسلها الشخص.', inline: false },
+                            { name: '**`+بنغ`**', value: 'معرفة سرعة الاستجابة.', inline: false }
+                        );
                 } else if (page === '2') {
                     return new EmbedBuilder()
                         .setColor('#E67E22')
                         .setTitle('🎮 الألعاب، الحظ، والتحديات')
-                        .setDescription(`اختر القسم المناسب من القائمة أدناه:`)
                         .addFields(
-                            { name: '**`+luck [@العضو]`**', value: 'اختبار نسبة الحظ اليومي (بنسب عشوائية غير محدودة).', inline: false },
-                            { name: '**`+fortune`**', value: 'توقع عشوائي ومميز لمستقبلك اليوم.', inline: false },
-                            { name: '**`+challenge [@العضو]`**', value: 'بدء تحدي ممتع بينك وبين شخص آخر.', inline: false },
-                            { name: '**`+rep [@العضو]`**', value: 'إعطاء نقطة سمعة / Reputation لشخص (مرة كل 24 ساعة).', inline: false },
-                            { name: '**`+repboard`**', value: 'عرض لوحة شرف السمعة والترتيب.', inline: false }
-                        )
-                        .setFooter({ text: 'القسم الثاني: الألعاب والحظ | بواسطة ' + message.author.tag });
+                            { name: '**`+luck [@العضو]`**', value: 'اختبار نسبة الحظ اليومي.', inline: false },
+                            { name: '**`+fortune`**', value: 'توقع عشوائي لمستقبلك.', inline: false },
+                            { name: '**`+challenge [@العضو]`**', value: 'بدء تحدي ممتع.', inline: false },
+                            { name: '**`+rep [@العضو]` / `+repboard`**', value: 'نظام السمعة ولوحة الشرف.', inline: false }
+                        );
                 } else if (page === '3') {
                     return new EmbedBuilder()
                         .setColor('#2ECC71')
                         .setTitle('🛡️ الإشراف، إدارة الرومات والأعضاء')
-                        .setDescription(`اختر القسم المناسب من القائمة أدناه:`)
                         .addFields(
-                            { name: '**`+warn [@العضو] [السبب]`**', value: 'تحذير شخص وإرسال التفاصيل له بالخاص.', inline: false },
-                            { name: '**`+slowmode [الثواني]`**', value: 'ضبط الوضع البطيء للشات (Slowmode).', inline: false },
-                            { name: '**`+nick [@العضو] [الاسم]`**', value: 'تغيير نك نيم الشخص أو إزالته وتصفيره.', inline: false },
-                            { name: '**`+بان` / `+كيك` / `+فكبان`**', value: 'إدارة الحظر والطرد للأعضاء.', inline: false },
-                            { name: '**`+تايم` / `+انتايم`**', value: 'إعطاء ميوت مؤقت وإزالته.', inline: false },
-                            { name: '**`+مسح [العدد]`**', value: 'مسح رسائل الشات (1-100).', inline: false },
+                            { name: '**`+استدعاء` أو `+c` [@العضو] [السبب]`**', value: 'استدعاء إداري للعضو في الخاص.', inline: false },
+                            { name: '**`+warn [@العضو] [السبب]`**', value: 'تحذير شخص وإرسال التفاصيل بالخاص.', inline: false },
+                            { name: '**`+slowmode [الثواني]`**', value: 'ضبط الوضع البطيء للشات.', inline: false },
+                            { name: '**`+nick [@العضو] [الاسم]`**', value: 'تغيير نك نيم الشخص.', inline: false },
+                            { name: '**`+بان` / `+كيك` / `+فكبان` / `+تايم`**', value: 'أوامر العقوبات والطرد والميوت.', inline: false },
+                            { name: '**`+مسح [العدد]`**', value: 'مسح رسائل الشات.', inline: false },
                             { name: '**`+قفل` / `+فتح` / `+اخفاء` / `+اظهار`**', value: 'التحكم بخصائص الرومات.', inline: false },
-                            { name: '**`+رول` / `+رول-جماعي`**', value: 'منح الرتب للأعضاء بشكل فردي أو جماعي.', inline: false },
-                            { name: '**`+مسابقة [الوقت] [الجائزة]`**', value: 'بدء مسابقة تفاعلية بزر مشاركة 🎉.', inline: false },
-                            { name: '**`+صرف [المبلغ] [العملة]`**', value: 'تحويل العملات (يورو، جنيه، ليرة، ريال) بدقة.', inline: false }
-                        )
-                        .setFooter({ text: 'القسم الثالث: الإشراف والأدوات | بواسطة ' + message.author.tag });
+                            { name: '**`+رول` / `+رول-جماعي`**', value: 'منح الرتب.', inline: false },
+                            { name: '**`+مسابقة [الوقت] [الجائزة]`**', value: 'مسابقات تفاعلية بزر.', inline: false },
+                            { name: '**`+صرف [المبلغ] [العملة]`**', value: 'تحويل العملات بدقة.', inline: false }
+                        );
                 } else if (page === '4') {
                     return new EmbedBuilder()
                         .setColor('#FF0000')
                         .setTitle('👑 قائمة الأونر الخاصة (صاحب السيرفر)')
-                        .setDescription(`هذه القائمة مخصصة لصاحب السيرفر فقط!\n\nالأوامر المتاحة هنا:`)
                         .addFields(
-                            { name: '**`+طوارئ`**', value: 'قفل جميع رومات السيرفر دفعة واحدة.', inline: false },
-                            { name: '**`+فك-طوارئ`**', value: 'إلغاء الطوارئ وفتح جميع الرومات.', inline: false },
-                            { name: '**`+ايقاف-السستم`**', value: 'إيقاف نظام البوت بشكل كامل.', inline: false },
-                            { name: '**`+تشغيل-السستم`**', value: 'إعادة تفعيل وتشغيل نظام البوت.', inline: false }
-                        )
-                        .setFooter({ text: 'القسم الرابع: الأونر | بواسطة ' + message.author.tag });
+                            { name: '**`+طوارئ` / `+فك-طوارئ`**', value: 'قفل أو فتح جميع رومات السيرفر.', inline: false },
+                            { name: '**`+ايقاف-السستم` / `+تشغيل-السستم`**', value: 'إيقاف أو تشغيل نظام البوت.', inline: false }
+                        );
                 }
             };
 
@@ -780,17 +808,15 @@ client.on('messageCreate', async message => {
                         .setPlaceholder('📂 اضغط هنا لاختيار القسم المطلوب...')
                         .setDisabled(disabled)
                         .addOptions([
-                            { label: 'الأوامر العامة والمعلوماتية', description: 'عرض Status، البروفايل، أول رسالة، السيرفر', value: '1', emoji: '📌' },
-                            { label: 'الألعاب، الحظ، والتحديات', description: 'عرض Luck، التوقعات، التحديات، والسمعة Rep', value: '2', emoji: '🎲' },
-                            { label: 'الإشراف وإدارة الرومات', description: 'عرض Warn، Slowmode، Nick، البان، الميوت', value: '3', emoji: '🛡️' },
-                            { label: 'قائمة الأونر (صاحب السيرفر)', description: 'أوامر الطوارئ وإيقاف وتشغيل النظام', value: '4', emoji: '👑' }
+                            { label: 'الأوامر العامة والمعلوماتية', value: '1', emoji: '📌' },
+                            { label: 'الألعاب، الحظ، والتحديات', value: '2', emoji: '🎲' },
+                            { label: 'الإشراف وإدارة الرومات والاستدعاء', value: '3', emoji: '🛡️' },
+                            { label: 'قائمة الأونر (صاحب السيرفر)', value: '4', emoji: '👑' }
                         ])
                 );
             };
 
             const initialMsg = await message.reply({ embeds: [getEmbed('1')], components: [getMenu()] });
-
-            // تم زيادة الوقت إلى 3 دقائق (180000 ميلي ثانية) لكي يبقى شغالاً لفترة أطول
             const collector = initialMsg.createMessageComponentCollector({ time: 180000 });
 
             collector.on('collect', async i => {
