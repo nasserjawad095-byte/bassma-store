@@ -14,7 +14,6 @@ let systemActive = true;
 
 const afkUsers = new Map();
 const dailyMessages = new Map();
-const activePurchases = new Map(); // تتبع مراحل الشراء
 
 // أسعار الصرف التقريبية للتحويل إلى الدولار ($)
 const exchangeRates = {
@@ -26,7 +25,11 @@ const exchangeRates = {
     'eur': 1.08,
     'دولار': 1.0,
     'usd': 1.0,
-    'usdt': 1.0
+    'usdt': 1.0,
+    'جنيه': 0.021,
+    'egp': 0.021,
+    'ليرة': 0.000011,
+    'try': 0.029
 };
 
 // دالة تحويل الوقت بشكل آمن لتجنب الكراش
@@ -67,64 +70,6 @@ client.on('guildMemberAdd', async member => {
 client.on('messageCreate', async message => {
     try {
         if (!message.guild || message.author.bot) return;
-
-        // نظام الشراء المتقدم (خطوة بخطوة - تم إصلاحه وتفعيل الـ Collector بشكل صحيح)
-        if (activePurchases.has(message.author.id)) {
-            const purchaseData = activePurchases.get(message.author.id);
-            if (message.channel.id === purchaseData.channelId) {
-                
-                // الخطوة 1: استقبال العملة
-                if (purchaseData.step === 'currency') {
-                    const currencyInput = message.content.trim();
-                    if (!currencyInput) return;
-
-                    purchaseData.currency = currencyInput;
-                    purchaseData.step = 'amount';
-                    
-                    await message.delete().catch(() => {});
-                    
-                    const promptMsg = await message.channel.send(`> 🔢 عظيم يا ${message.author}، لقد اخترت العملة (**${purchaseData.currency}**).\n> الرجاء كتابة **الكمية أو العدد** فقط الآن (مثال: \`30\`):`);
-                    purchaseData.promptMsgId = promptMsg.id;
-                    return;
-                }
-
-                // الخطوة 2: استقبال الكمية والتحويل للدولار
-                if (purchaseData.step === 'amount') {
-                    const amount = parseFloat(message.content.trim());
-                    if (isNaN(amount) || amount <= 0) {
-                        return message.reply('❌ يرجى كتابة رقم صحيح للكمية (مثال: `30` أو `10`).').then(m => setTimeout(() => m.delete().catch(() => {}), 4000));
-                    }
-
-                    const currKey = purchaseData.currency.toLowerCase();
-                    const rate = exchangeRates[currKey] || 1.0; 
-                    const convertedUSD = (amount * rate).toFixed(2);
-
-                    activePurchases.delete(message.author.id);
-                    await message.delete().catch(() => {});
-
-                    if (purchaseData.promptMsgId) {
-                        try {
-                            const oldMsg = await message.channel.messages.fetch(purchaseData.promptMsgId);
-                            if (oldMsg) await oldMsg.delete().catch(() => {});
-                        } catch (e) {}
-                    }
-
-                    const receiptEmbed = new EmbedBuilder()
-                        .setColor('#00FF00')
-                        .setTitle('🛒 New Purchase Request / طلب شراء جديد')
-                        .addFields(
-                            { name: '👤 Buyer / المشتري', value: `${message.author}`, inline: true },
-                            { name: '💳 Payment Method / طريقة الدفع', value: `\`${purchaseData.method}\``, inline: true },
-                            { name: '💵 Currency & Amount / العملة والكمية', value: `\`${amount} ${purchaseData.currency}\``, inline: true },
-                            { name: '💲 Converted Price / السعر المحول', value: `**$${convertedUSD} USD**`, inline: false }
-                        )
-                        .setTimestamp()
-                        .setFooter({ text: 'Thank you for your purchase!' });
-
-                    return message.channel.send({ embeds: [receiptEmbed] });
-                }
-            }
-        }
 
         // نظام الـ AFK
         if (afkUsers.has(message.author.id)) {
@@ -177,53 +122,31 @@ client.on('messageCreate', async message => {
             return;
         }
 
-        // +شراء (قائمة منسدلة لطرق الدفع - تم تصحيح طريقة التقاط التفاعل)
-        if (command === 'شراء' || command === 'buy') {
-            const buyEmbed = new EmbedBuilder()
-                .setColor('#5865F2')
-                .setTitle('🛒 Store Purchase System')
-                .setDescription('Please select your preferred payment method from the menu below:');
+        // +تحويل-مبلغ (أمر مباشر لتحويل أي مبلغ وأي عملة إلى دولار - مثال: +تحويل-مبلغ 200 ريال)
+        if (command === 'تحويل-مبلغ') {
+            const amount = parseFloat(args[0]);
+            const currency = args[1] ? args[1].toLowerCase() : '';
 
-            const buyMenu = new ActionRowBuilder().addComponents(
-                new StringSelectMenuBuilder()
-                    .setCustomId('purchase_menu_' + message.author.id)
-                    .setPlaceholder('Select Payment Method...')
-                    .addOptions([
-                        { label: 'Apple Pay', description: 'Pay securely using Apple Pay', value: 'Apple Pay', emoji: '' },
-                        { label: 'Bitcoin (BTC)', description: 'Pay with Bitcoin cryptocurrency', value: 'Bitcoin (BTC)', emoji: '₿' },
-                        { label: 'Ethereum (ETH)', description: 'Pay with Ethereum cryptocurrency', value: 'Ethereum (ETH)', emoji: 'Ξ' },
-                        { label: 'USDT (Tether)', description: 'Pay using USDT stablecoin', value: 'USDT (Tether)', emoji: '💵' },
-                        { label: 'Other Payment Method', description: 'Contact staff for alternative methods', value: 'Other Payment Method', emoji: '⚙️' }
-                    ])
-            );
+            if (isNaN(amount) || !currency) {
+                return message.reply('⚠️ **طريقة الاستخدام الصحيحة:**\n`+تحويل-مبلغ [الرقم] [العملة]`\nمثال: `+تحويل-مبلغ 200 ريال` أو `+تحويل-مبلغ 50 يورو`');
+            }
 
-            const sentMsg = await message.reply({ embeds: [buyEmbed], components: [buyMenu] });
+            // حساب السعر (إذا لم تكن العملة موجودة في القائمة، يعتبرها الدولار كافتراضي أو يعطي نسبة 1.0)
+            const rate = exchangeRates[currency] || 1.0;
+            const convertedUSD = (amount * rate).toFixed(2);
 
-            const collector = sentMsg.createMessageComponentCollector({ time: 60000 });
+            const convertEmbed = new EmbedBuilder()
+                .setColor('#00FF00')
+                .setTitle('💱 تحويل العملات إلى الدولار')
+                .addFields(
+                    { name: '👤 بواسطة', value: `${message.author}`, inline: true },
+                    { name: '💵 المبلغ المدخل', value: `\`${amount} ${currency}\``, inline: true },
+                    { name: '💲 السعر بالدولار', value: `**$${convertedUSD} USD**`, inline: false }
+                )
+                .setTimestamp()
+                .setFooter({ text: 'Currency Converter System' });
 
-            collector.on('collect', async i => {
-                try {
-                    if (i.user.id !== message.author.id) {
-                        return i.reply({ content: '❌ This menu is not for you!', ephemeral: true });
-                    }
-
-                    const selectedMethod = i.values[0];
-                    activePurchases.set(i.user.id, { 
-                        method: selectedMethod, 
-                        channelId: message.channel.id, 
-                        step: 'currency' 
-                    });
-
-                    await i.update({
-                        content: `✅ You selected **${selectedMethod}**. Now please type **the currency name** in the chat (e.g., \`ريال\` or \`يورو\` or \`دولار\`):`,
-                        embeds: [],
-                        components: []
-                    });
-                } catch (err) {
-                    console.error('Error in purchase collector:', err);
-                }
-            });
-            return;
+            return message.reply({ embeds: [convertEmbed] });
         }
 
         if (command === 'رتب') {
@@ -580,7 +503,7 @@ client.on('messageCreate', async message => {
                             { name: '**`+رول-جماعي [@الرول]`**', value: '**إعطاء رول معينة لجميع أعضاء السيرفر دفعة واحدة.**', inline: false },
                             { name: '**`+مسابقة [الوقت] [الجائزة]`**', value: '**بدء مسابقة تفاعلية بزر المشاركة 🎉.**', inline: false },
                             { name: '**`+greet [@العضو]`**', value: '**ترحيب سريع يمنشن العضو ويحذف الرسالة.**', inline: false },
-                            { name: '**`+شراء` / `+buy`**', value: '**قائمة متجر لطلب المنتجات بالعملات والتحويل التلقائي للدولار.**', inline: false },
+                            { name: '**`+تحويل-مبلغ [الرقم] [العملة]`**', value: '**أمر مباشر لتحويل أي مبلغ وأي عملة إلى الدولار.**', inline: false },
                             { name: '**`+طوارئ` / `+فك-طوارئ`**', value: '**قفل أو فتح جميع رومات السيرفر دفعة واحدة.**', inline: false }
                         )
                         .setFooter({ text: 'القائمة الثالثة | بواسطة ' + message.author.tag });
@@ -606,7 +529,7 @@ client.on('messageCreate', async message => {
                         .addOptions([
                             { label: 'قسم النظام والإحصائيات', description: 'عرض أوامر AFK، توب الرسائل، ومعلومات السيرفر', value: '1', emoji: '📊' },
                             { label: 'قسم الإشراف والرومات', description: 'عرض أوامر البان، الكيك، الميوت، وقفل الرومات', value: '2', emoji: '🛡️' },
-                            { label: 'قسم الرتب والأدوات والشراء', description: 'عرض أوامر الرول، المسابقات، الشراء، والترحيب', value: '3', emoji: '⚙️' },
+                            { label: 'قسم الرتب والأدوات والتحويل', description: 'عرض أوامر الرول، المسابقات، تحويل العملات، والترحيب', value: '3', emoji: '⚙️' },
                             { label: 'قائمة الأونر (صاحب السيرفر)', description: 'مخصصة لصاحب السيرفر فقط لإيقاف وتشغيل النظام', value: '4', emoji: '👑' }
                         ])
                 );
