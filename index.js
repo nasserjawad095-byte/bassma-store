@@ -15,7 +15,8 @@ let systemActive = true;
 const afkUsers = new Map();
 const dailyMessages = new Map();
 const userReputation = new Map(); // لتخزين السمعة +rep
-const userActivityCount = new Map(); // لتتبع نشاط الأعضاء
+const repCooldowns = new Map();   // لتتبع وقت الـ 24 ساعة لأمر +rep
+const userActivityCount = new Map(); // لتتتبع نشاط الأعضاء
 
 // أسعار الصرف المحدثة
 const exchangeRates = {
@@ -23,11 +24,11 @@ const exchangeRates = {
     'sar': 3.75,
     'درهم': 3.67,
     'aed': 3.67,
-    'يورو': 1.1398, // 50 يورو = 56.99 دولار
+    'يورو': 1.1398,
     'eur': 1.1398,
     'ليرة': 89500,
     'lbp': 89500,
-    'جنيه': 42,        // 1 دولار = 42 جنيه
+    'جنيه': 42,
     'egp': 42,
     'دولار': 1.0,
     'usd': 1.0,
@@ -270,18 +271,30 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [chalEmbed] });
         }
 
-        // 11. +rep @user (إعطاء سمعة لشخص)
+        // 11. +rep @user (إعطاء سمعة لشخص مع كول داون 24 ساعة)
         if (command === 'rep') {
             const target = message.mentions.users.first();
             if (!target || target.id === message.author.id) return message.reply('⚠️ يرجى منشن عضو لإعطائه سمعة: `+rep @العضو`');
-            
+
+            const cooldownTime = 24 * 60 * 60 * 1000; // 24 ساعة بالميلي ثانية
+            const lastRepTime = repCooldowns.get(message.author.id);
+
+            if (lastRepTime && (Date.now() - lastRepTime < cooldownTime)) {
+                const remainingTime = cooldownTime - (Date.now() - lastRepTime);
+                const hoursLeft = Math.floor(remainingTime / (1000 * 60 * 60));
+                const minutesLeft = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+                return message.reply(`⏳ عذراً، يمكنك استخدام أمر \`+rep\` مرة أخرى بعد **${hoursLeft} ساعة و ${minutesLeft} دقيقة**.`);
+            }
+
+            repCooldowns.set(message.author.id, Date.now());
+
             const currentRep = userReputation.get(target.id) || 0;
             userReputation.set(target.id, currentRep + 1);
 
             const repEmbed = new EmbedBuilder()
                 .setColor('#2ECC71')
                 .setTitle('⭐ نظام السمعة (Reputation)')
-                .setDescription(`لقد قمت بإعطاء نقطة سمعة لـ ${target} بنجاح!\nإجمالي نقاط سمعته الآن: **${currentRep + 1} ⭐**`);
+                .setDescription(`لقد قمت بإعطاء نقطة سمعة لـ ${target} بنجاح!\nإجمالي نقاط سمعته الآن: **${currentRep + 1} ⭐**\n*(يمكنك استخدام هذا الأمر مرة كل 24 ساعة)*`);
             return message.reply({ embeds: [repEmbed] });
         }
 
@@ -328,7 +341,7 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [topActEmbed] });
         }
 
-        // الأوامر السابقة (AFK, Greet, صرف, رتب, توب, سيرفر, بروفايل, صورة, قفل, فتح, اخفاء, اظهار, تايم, انتايم, فكبان, مسابقة, كيك, بان, مسح, رول-جماعي, رول, بنغ, قول, طوارئ, فك-طوارئ, بطيء)
+        // الأوامر السابقة
         if (command === 'afk') {
             const reason = args.join(' ') || 'بدون سبب';
             afkUsers.set(message.author.id, reason);
@@ -688,7 +701,7 @@ client.on('messageCreate', async message => {
         }
 
         // ==========================================
-        // أمر +help (مقسم ومنظم بقوائم دقيقة)
+        // أمر +help (مقسم ومنظم مع زيادة وقت البقاء إلى 3 دقائق)
         // ==========================================
         if (command === 'help') {
             const totalCommandsCount = 41;
@@ -723,7 +736,7 @@ client.on('messageCreate', async message => {
                             { name: '**`+luck [@العضو]`**', value: 'اختبار نسبة الحظ اليومي (بنسب عشوائية غير محدودة).', inline: false },
                             { name: '**`+fortune`**', value: 'توقع عشوائي ومميز لمستقبلك اليوم.', inline: false },
                             { name: '**`+challenge [@العضو]`**', value: 'بدء تحدي ممتع بينك وبين شخص آخر.', inline: false },
-                            { name: '**`+rep [@العضو]`**', value: 'إعطاء نقطة سمعة / Reputation لشخص.', inline: false },
+                            { name: '**`+rep [@العضو]`**', value: 'إعطاء نقطة سمعة / Reputation لشخص (مرة كل 24 ساعة).', inline: false },
                             { name: '**`+repboard`**', value: 'عرض لوحة شرف السمعة والترتيب.', inline: false }
                         )
                         .setFooter({ text: 'القسم الثاني: الألعاب والحظ | بواسطة ' + message.author.tag });
@@ -777,7 +790,8 @@ client.on('messageCreate', async message => {
 
             const initialMsg = await message.reply({ embeds: [getEmbed('1')], components: [getMenu()] });
 
-            const collector = initialMsg.createMessageComponentCollector({ time: 60000 });
+            // تم زيادة الوقت إلى 3 دقائق (180000 ميلي ثانية) لكي يبقى شغالاً لفترة أطول
+            const collector = initialMsg.createMessageComponentCollector({ time: 180000 });
 
             collector.on('collect', async i => {
                 try {
