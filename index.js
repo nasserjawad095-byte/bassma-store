@@ -787,17 +787,75 @@ client.on('messageCreate', async message => {
             }
         }
 
+        // أمر #رول المحدث (يدعم المنشن أو الآي دي)
         if (command === 'رول') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply('❌ لا تمتلك صلاحية.');
             const target = message.mentions.members.first();
-            const role = message.mentions.roles.first();
-            if (!target || !role) return message.reply('⚠️ الاستخدام: `#رول @العضو @الرول`');
+            
+            // استخراج الرتبة سواء بمنشن أو بواسطة الآي دي المكتوب في الأرجيومنت الثاني
+            let roleArg = args[1];
+            let role = message.mentions.roles.first();
+            if (!role && roleArg) {
+                const cleanRoleId = roleArg.replace(/[<@&>]/g, '');
+                role = message.guild.roles.cache.get(cleanRoleId);
+            }
+
+            if (!target || !role) return message.reply('⚠️ الاستخدام الصحيح:\n`#رول @العضو @الرول` أو `#رول @العضو [آي دي الرتبة]`');
+            
             if (target.roles.cache.has(role.id)) {
                 await target.roles.remove(role);
-                return message.reply('❌ تم إزالة الرتبة.');
+                return message.reply(`❌ تم إزالة رتبة **${role.name}** عن ${target.user.tag}.`);
             } else {
                 await target.roles.add(role);
-                return message.reply('✅ تم إعطاء الرتبة.');
+                return message.reply(`✅ تم إعطاء رتبة **${role.name}** لـ ${target.user.tag}.`);
+            }
+        }
+
+        // أمر #roleicon الجديد لتعيين أي إيموجي كصورة للرتبة
+        if (command === 'roleicon') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply('❌ لا تمتلك صلاحية إدارة الرتب.');
+            
+            let roleArg = args[0];
+            let role = message.mentions.roles.first();
+            if (!role && roleArg) {
+                const cleanRoleId = roleArg.replace(/[<@&>]/g, '');
+                role = message.guild.roles.cache.get(cleanRoleId);
+            }
+            
+            // الإيموجي يكون غالباً في الوسيط الثاني (args[1])
+            let emojiInput = args[1];
+
+            if (!role || !emojiInput) {
+                return message.reply('⚠️ **طريقة الاستخدام:**\n`#roleicon @الرول [الإيموجي]` (أو باستخدام آي دي الرتبة).');
+            }
+
+            try {
+                let iconData = null;
+
+                // التحقق هل هو إيموجي مخصص للسيرفر مثل <:name:id> أو <a:name:id>
+                const customEmojiMatch = emojiInput.match(/<a?:[a-zA-Z0-9_]+:(\d+)>/);
+                if (customEmojiMatch) {
+                    // إذا كان إيموجي سفلي، يمكننا جلبه كرابط بصري أو استخدام الـ id الخاص به
+                    // ديسكورد للرتب يقبل إما رابط صورة إيموجي أو استخدام الـ ID المخصص عبر fetch
+                    const emojiId = customEmojiMatch[1];
+                    const fetchedEmoji = message.guild.emojis.cache.get(emojiId);
+                    if (fetchedEmoji) {
+                        iconData = fetchedEmoji.imageURL();
+                    } else {
+                        iconData = `https://cdn.discordapp.com/emojis/${emojiId}.png`;
+                    }
+                } else {
+                    // إذا كان إيموجي عادي (Unicode Emoji)، نقوم بتحويله إلى كود أو رابط عبر خدمة خارجية تدعم إيموجيات يونيكود للرتب
+                    // ديسكورد للرتب (setIcon) يتطلب عادة رابط صورة (URL) للأيقونة، أو يمكنك تمرير الإيموجي إذا كان مدعوماً كـ attachment/url
+                    const codePoints = [...emojiInput].map(char => char.codePointAt(0).toString(16)).join('-');
+                    iconData = `https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/${codePoints}.png`;
+                }
+
+                await role.setIcon(iconData);
+                return message.reply(`✅ تم بنجاح تعيين الإيموجي **${emojiInput}** كأيقونة لرتبة **${role.name}**!`);
+            } catch (e) {
+                console.error(e);
+                return message.reply('❌ فشل تعيين الأيقونة، تأكد من أن السيرفر يدعم ميزة أيقونات الرتب (Boost Level 2+) وأن البوت يمتلك رتبة أعلى من الرتبة المراد تعديلها.');
             }
         }
 
@@ -842,7 +900,7 @@ client.on('messageCreate', async message => {
         }
 
         if (command === 'help') {
-            const totalCommandsCount = 45;
+            const totalCommandsCount = 46;
 
             const getEmbed = (page) => {
                 if (page === '1') {
@@ -898,7 +956,8 @@ client.on('messageCreate', async message => {
                             { name: '`#فتح`', value: 'لفتح الروم الحالي والسماح بالكتابة.', inline: false },
                             { name: '`#اخفاء`', value: 'لإخفاء الروم عن الأعضاء.', inline: false },
                             { name: '`#اظهار`', value: 'لإظهار الروم وجعله مرئياً.', inline: false },
-                            { name: '`#رول [@العضو] [@الرول]`', value: 'لإعطاء أو إزالة رتبة عن عضو.', inline: false },
+                            { name: '`#رول [@العضو] [@الرول/الايدي]`', value: 'لإعطاء أو إزالة رتبة عن عضو (بالمنشن أو الآي دي).', inline: false },
+                            { name: '`#roleicon [@الرول] [الإيموجي]`', value: 'تعيين أي إيموجي (عادي أو مخصص) كأيقونة للرتبة.', inline: false },
                             { name: '`#رول-جماعي [@الرول]`', value: 'لإعطاء رتبة معينة لجميع أعضاء السيرفر.', inline: false },
                             { name: '`#gstart [الوقت] [الجائزة]`', value: 'لبدء مسابقة جديدة تعتمد على التفاعل (الرياكشن).', inline: false },
                             { name: '`#صرف [المبلغ] [العملة]`', value: 'لتحويل العملات بدقة (يدعم الدينار العراقي `#صرف 50000 دينار`).', inline: false }
