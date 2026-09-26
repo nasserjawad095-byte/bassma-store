@@ -17,7 +17,7 @@ process.on('uncaughtException', error => {
     console.error('Uncaught exception:', error);
 });
 
-const PREFIX = '+';
+const PREFIX = '#';
 let systemActive = true;
 
 const afkUsers = new Map();
@@ -27,9 +27,7 @@ const repCooldowns = new Map();
 const userActivityCount = new Map();
 const inviteTracker = new Map();
 const leftMembersCache = new Set();
-
-// تخزين الرسائل المحذوفة لنظام السنايب (+snipe و +snipeall)
-const snipeCache = new Map(); // مفتاحها channelId وقيمتها مصفوفة رسائل
+const snipeCache = new Map();
 
 const exchangeRates = {
     'ريال': 3.75,
@@ -92,7 +90,6 @@ client.on('inviteDelete', async invite => {
     cacheGuildInvites(invite.guild);
 });
 
-// التقاط الرسائل المحذوفة لنظام السنايب
 client.on('messageDelete', message => {
     if (!message.guild || message.author?.bot) return;
     
@@ -107,7 +104,6 @@ client.on('messageDelete', message => {
         time: Date.now()
     });
 
-    // الاحتفاظ بأخر 20 رسالة فقط لكل روم لتجنب استهلاك الذاكرة
     if (channelSnipes.length > 20) {
         channelSnipes.pop();
     }
@@ -140,13 +136,13 @@ client.on('guildMemberAdd', async member => {
 
         if (!inviter) {
             valid = false;
-            reason = 'لم يتم تحديد الانفايت بدقة (رابط غير معروف أو دعوة خاصة)';
+            reason = 'لم يتم تحديد الانفايت بدقة';
         } else if (!isOlderThanMonth) {
             valid = false;
-            reason = 'عمر حساب العضو أقل من شهر (أقل من 30 يوماً)';
+            reason = 'عمر حساب العضو أقل من 30 يوماً';
         } else if (hasLeftBefore) {
             valid = false;
-            reason = 'العضو قام بالخروج والعودة من السيرفر مسبقاً';
+            reason = 'العضو قام بالخروج والعودة مسبقاً';
         }
 
         inviteTracker.set(member.id, {
@@ -212,7 +208,6 @@ client.on('messageCreate', async message => {
         const args = message.content.slice(PREFIX.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
 
-        // أمر +snipe الجديد
         if (command === 'snipe') {
             const channelSnipes = snipeCache.get(message.channel.id);
             if (!channelSnipes || channelSnipes.length === 0) {
@@ -223,10 +218,10 @@ client.on('messageCreate', async message => {
             const snipeEmbed = new EmbedBuilder()
                 .setColor('#FF5733')
                 .setAuthor({ name: latest.author.tag, iconURL: latest.author.displayAvatarURL({ dynamic: true }) })
-                .setTitle('🎯 آخر رسالة تم حذفها (Snipe)')
+                .setTitle('🎯 آخر رسالة تم حذفها')
                 .setDescription(`> ${latest.content}`)
                 .addFields(
-                    { name: '👤 صاحب الرسالة (Author)', value: `<@${latest.author.id}>`, inline: true },
+                    { name: '👤 صاحب الرسالة', value: `<@${latest.author.id}>`, inline: true },
                     { name: '⏱️ وقت الحذف', value: `<t:${Math.floor(latest.time / 1000)}:R>`, inline: true }
                 )
                 .setTimestamp();
@@ -234,7 +229,6 @@ client.on('messageCreate', async message => {
             return message.reply({ embeds: [snipeEmbed] });
         }
 
-        // أمر +snipeall الجديد
         if (command === 'snipeall') {
             const channelSnipes = snipeCache.get(message.channel.id);
             if (!channelSnipes || channelSnipes.length === 0) {
@@ -248,7 +242,7 @@ client.on('messageCreate', async message => {
 
             const snipeAllEmbed = new EmbedBuilder()
                 .setColor('#3498DB')
-                .setTitle(`🗑️ سجل آخر الرسائل المحذوفة في هذا الروم (Snipe All)`)
+                .setTitle('🗑️ سجل آخر الرسائل المحذوفة في هذا الروم')
                 .setDescription(desc)
                 .setFooter({ text: `إجمالي المحفوظات: ${channelSnipes.length} رسالة` })
                 .setTimestamp();
@@ -258,21 +252,17 @@ client.on('messageCreate', async message => {
 
         if (command === 'status') {
             const ping = client.ws.ping;
-            let speedText = '⚡ سريع جداً';
-            if (ping > 150 && ping <= 350) speedText = ' متوسط';
-            if (ping > 350) speedText = ' بطيء';
-
             const uptimeSeconds = Math.floor(client.uptime / 1000);
             const hours = Math.floor(uptimeSeconds / 3600);
             const minutes = Math.floor((uptimeSeconds % 3600) / 60);
 
             const statusEmbed = new EmbedBuilder()
                 .setColor('#2b2d31')
-                .setTitle('📊 إحصائيات وحالة البوت / Bot Status')
+                .setTitle('📊 إحصائيات وحالة البوت')
                 .addFields(
-                    { name: '🏓 البينغ (Ping)', value: `\`${ping}ms\` (${speedText})`, inline: true },
-                    { name: '⏱️ وقت التشغيل (Uptime)', value: `\`${hours} ساعة و ${minutes} دقيقة\``, inline: true },
-                    { name: '👥 السيرفرات (Servers)', value: `\`${client.guilds.cache.size} سيرفر\``, inline: true }
+                    { name: 'البينغ (سرعة الاستجابة)', value: `\`${ping}ms\``, inline: true },
+                    { name: 'وقت التشغيل', value: `\`${hours} ساعة و ${minutes} دقيقة\``, inline: true },
+                    { name: 'السيرفرات', value: `\`${client.guilds.cache.size} سيرفر\``, inline: true }
                 )
                 .setTimestamp();
             return message.reply({ embeds: [statusEmbed] });
@@ -284,18 +274,18 @@ client.on('messageCreate', async message => {
 
             const embed = new EmbedBuilder()
                 .setColor('#5865F2')
-                .setTitle(`🔍 تفاصيل الانفايت للعضو / Invite Info: ${target.username}`)
+                .setTitle(`🔍 تفاصيل الانفايت للعضو: ${target.username}`)
                 .setThumbnail(target.displayAvatarURL({ dynamic: true }));
 
             if (!inviteData) {
-                embed.setDescription(`⚠️ لا توجد بيانات مسجلة لهذا العضو أو أنه انضم قبل تشغيل البوت.\n- **هل يُحسب؟** غير متوفر`);
+                embed.setDescription('⚠️ لا توجد بيانات مسجلة لهذا العضو أو أنه انضم قبل تشغيل البوت.');
             } else {
                 embed.addFields(
-                    { name: '🔗 دعوة بواسطة (Inviter)', value: `\`${inviteData.inviter}\` (كود: \`${inviteData.inviteCode}\`)`, inline: false },
-                    { name: '📊 هل يحسب الانفايت؟ (Valid)', value: inviteData.valid ? '✅ نعم (مستوفي للشروط)' : '❌ لا يحسب', inline: false }
+                    { name: 'تمت دعوته بواسطة', value: `\`${inviteData.inviter}\` (كود: \`${inviteData.inviteCode}\`)`, inline: false },
+                    { name: 'هل يُحسب الانفايت؟', value: inviteData.valid ? '✅ نعم' : '❌ لا', inline: false }
                 );
                 if (!inviteData.valid) {
-                    embed.addFields({ name: '📌 سبب عدم الاحتساب (Reason)', value: `> ${inviteData.reason}`, inline: false });
+                    embed.addFields({ name: 'سبب عدم الاحتساب', value: `> ${inviteData.reason}`, inline: false });
                 }
             }
             return message.reply({ embeds: [embed] });
@@ -310,24 +300,24 @@ client.on('messageCreate', async message => {
             const reason = args.slice(1).join(' ') || 'بدون سبب محدد';
 
             if (!targetUser) {
-                return message.reply('⚠️ يرجى استخدام الأمر بالشكل الصحيح: \n`+استدعاء @العضو [السبب]` أو `+c @العضو [السبب]`');
+                return message.reply('⚠️ طريقة الاستخدام: `#استدعاء @العضو [السبب]`');
             }
 
             try {
                 const embedDM = new EmbedBuilder()
                     .setColor('#FF0000')
-                    .setTitle('🚨 تنبيه استدعاء إداري / Staff Summon')
+                    .setTitle('🚨 تنبيه استدعاء إداري')
                     .addFields(
-                        { name: '🌐 السيرفر (Server)', value: message.guild.name, inline: true },
-                        { name: '👤 بواسطة الإداري (By)', value: `<@${message.author.id}>`, inline: true },
-                        { name: '📌 السبب (Reason)', value: reason }
+                        { name: 'السيرفر', value: message.guild.name, inline: true },
+                        { name: 'بواسطة الإداري', value: `<@${message.author.id}>`, inline: true },
+                        { name: 'السبب', value: reason }
                     )
                     .setTimestamp();
 
                 await targetUser.send({ embeds: [embedDM] });
-                return message.reply({ embeds: [new EmbedBuilder().setColor('#00FF00').setDescription(`✅ تم إرسال الاستدعاء إلى ${targetUser} في الخاص بنجاح.`)] });
+                return message.reply({ embeds: [new EmbedBuilder().setColor('#00FF00').setDescription(`✅ تم إرسال الاستدعاء إلى ${targetUser} بالخاص بنجاح.`)] });
             } catch (e) {
-                return message.reply(`⚠️ تم محاولة استدعاء ${targetUser}، ولكن تعذر إرسال رسالة خاصة له (خاصه مقفل).`);
+                return message.reply(`⚠️ تعذر إرسال رسالة خاصة إلى ${targetUser} (الخاص مغلق).`);
             }
         }
 
@@ -335,22 +325,22 @@ client.on('messageCreate', async message => {
             if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply('❌ لا تمتلك صلاحية التحذير.');
             const target = message.mentions.members.first();
             const reason = args.slice(1).join(' ') || 'بدون سبب';
-            if (!target) return message.reply('⚠️ طريقة الاستخدام: `+warn @العضو [السبب]`');
+            if (!target) return message.reply('⚠️ طريقة الاستخدام: `#warn @العضو [السبب]`');
 
             try {
                 await target.send(`⚠️ **تم تحذيرك في سيرفر ${message.guild.name}**\nالسبب: **${reason}**`);
-                return message.reply(`✅ تم إرسال التحذير إلى العضو **${target.user.tag}** بالخاص بنجاح.`);
+                return message.reply(`✅ تم إرسال التحذير إلى العضو **${target.user.tag}** بالخاص.`);
             } catch (e) {
-                return message.reply(`⚠️ تم تحذير العضو **${target.user.tag}**، ولكن تعذر إرسال رسالة خاصة له (خاصه مقفل).`);
+                return message.reply(`⚠️ تم تحذير العضو، ولكن تعذر إرسال رسالة خاصة له.`);
             }
         }
 
-        if (command === 'slowmode' || command === 'سلومود') {
+        if (command === 'slowmode') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ لا تمتلك صلاحية إدارة الرومات.');
             const time = parseInt(args[0]);
-            if (isNaN(time) || time < 0) return message.reply('⚠️ حدد عدد الثواني (مثال: `+slowmode 5` أو `+slowmode 0` للإلغاء)');
+            if (isNaN(time) || time < 0) return message.reply('⚠️ حدد عدد الثواني (مثال: `#slowmode 5`)');
             await message.channel.setRateLimitPerUser(time);
-            return message.reply(time === 0 ? '⏱️ تم إلغاء الوضع البطيء (Slowmode).' : `⏱️ تم ضبط الوضع البطيء على **${time}** ثانية.`);
+            return message.reply(time === 0 ? '⏱️ تم إلغاء الوضع البطيء.' : `⏱️ تم ضبط الوضع البطيء على **${time}** ثانية.`);
         }
 
         if (command === 'firstmsg') {
@@ -364,17 +354,17 @@ client.on('messageCreate', async message => {
                     return message.reply(`❌ لم يتم العثور على رسائل حديثة لـ ${target} في هذا الروم.`);
                 }
                 let first = userMessages.last();
-                return message.reply(`💬 **أول رسالة عُثر عليها لـ ${target} / First Message:**\n> "${first.content}"\n[رابط الرسالة](${first.url})`);
+                return message.reply(`💬 **أول رسالة عُثر عليها:**\n> "${first.content}"\n[رابط الرسالة](${first.url})`);
             } catch (e) {
-                return message.reply('❌ حدث خطأ أثناء البحث عن الرسالة الأولى.');
+                return message.reply('❌ حدث خطأ أثناء البحث.');
             }
         }
 
-        if (command === 'nick' || command === 'نك') {
+        if (command === 'nick') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames)) return message.reply('❌ لا تمتلك صلاحية تعديل النك نيم.');
             const target = message.mentions.members.first();
             const newNick = args.slice(1).join(' ');
-            if (!target) return message.reply('⚠️ طريقة الاستخدام: `+nick @العضو [الاسم الجديد]`');
+            if (!target) return message.reply('⚠️ طريقة الاستخدام: `#nick @العضو [الاسم الجديد]`');
 
             try {
                 if (!newNick) {
@@ -385,7 +375,7 @@ client.on('messageCreate', async message => {
                     return message.reply(`✅ تم تغيير نك نيم **${target.user.tag}** إلى: **${newNick}**`);
                 }
             } catch (e) {
-                return message.reply('❌ فشل تغيير النك نيم، تأكد من رتبة البوت أنها أعلى من العضو.');
+                return message.reply('❌ فشل تغيير النك نيم، تأكد من رتبة البوت.');
             }
         }
 
@@ -394,7 +384,7 @@ client.on('messageCreate', async message => {
             if (!iconUrl) return message.reply('❌ هذا السيرفر لا يملك صورة.');
             const iconEmbed = new EmbedBuilder()
                 .setColor('#2b2d31')
-                .setTitle(`🖼️ صورة سيرفر / Server Icon: ${message.guild.name}`)
+                .setTitle(`🖼️ صورة سيرفر: ${message.guild.name}`)
                 .setImage(iconUrl);
             return message.reply({ embeds: [iconEmbed] });
         }
@@ -404,7 +394,7 @@ client.on('messageCreate', async message => {
             if (!bannerUrl) return message.reply('❌ هذا السيرفر لا يملك بانر.');
             const bannerEmbed = new EmbedBuilder()
                 .setColor('#2b2d31')
-                .setTitle(`🎨 بانر سيرفر / Server Banner: ${message.guild.name}`)
+                .setTitle(`🎨 بانر سيرفر: ${message.guild.name}`)
                 .setImage(bannerUrl);
             return message.reply({ embeds: [bannerEmbed] });
         }
@@ -419,7 +409,7 @@ client.on('messageCreate', async message => {
 
             const luckEmbed = new EmbedBuilder()
                 .setColor('#FFD700')
-                .setTitle('🎲 اختبار الحظ اليومي / Daily Luck')
+                .setTitle('🎲 اختبار الحظ اليومي')
                 .setDescription(`حظ **${target.username}** اليوم هو: **${luckPercentage}%**\n💬 ${luckMsg}`);
             return message.reply({ embeds: [luckEmbed] });
         }
@@ -437,33 +427,33 @@ client.on('messageCreate', async message => {
             const randomFortune = fortunes[Math.floor(Math.random() * fortunes.length)];
             const fortuneEmbed = new EmbedBuilder()
                 .setColor('#9B59B6')
-                .setTitle('🔮 كرة التوقعات المستقبلية / Fortune Cookie')
+                .setTitle('🔮 كرة التوقعات المستقبلية')
                 .setDescription(`> "${randomFortune}"`);
             return message.reply({ embeds: [fortuneEmbed] });
         }
 
         if (command === 'challenge') {
             const target = message.mentions.users.first();
-            if (!target || target.id === message.author.id) return message.reply('⚠️ يرجى منشن شخص لتحديه: `+challenge @العضو`');
+            if (!target || target.id === message.author.id) return message.reply('⚠️ يرجى منشن شخص لتحديه: `#challenge @العضو`');
             
             const challengesList = [
                 'تحدي صراع الأقوياء: من يكتب كلمة "سيرفر" أسرع وبدون غلط!',
                 'تحدي لعبة الصراحة: أجب عن سؤال محرج يطلبه منك الطرف الآخر.',
                 'تحدي من يجمع رسائل أكثر خلال 5 دقائق القادمة في الشات!',
-                'تحدي من يملك حظاً أفضل في رمي النرد (اكتب +luck وشوف من يفوز).'
+                'تحدي من يملك حظاً أفضل في رمي النرد.'
             ];
             const chosenChallenge = challengesList[Math.floor(Math.random() * challengesList.length)];
 
             const chalEmbed = new EmbedBuilder()
                 .setColor('#E67E22')
-                .setTitle('⚔️ تحدي جديد أُطلق / Challenge Started')
-                .setDescription(`**${message.author}** قام بتحدي ${target}!\n\n🎯 **نوع التحدي:**\n> ${chosenChallenge}\n\nمين قدها؟ ارفعوا التحدي بالروم! 🔥`);
+                .setTitle('⚔️ تحدي جديد أُطلق!')
+                .setDescription(`**${message.author}** قام بتحدي ${target}!\n\n🎯 **نوع التحدي:**\n> ${chosenChallenge}`);
             return message.reply({ embeds: [chalEmbed] });
         }
 
         if (command === 'rep') {
             const target = message.mentions.users.first();
-            if (!target || target.id === message.author.id) return message.reply('⚠️ يرجى منشن عضو لإعطائه سمعة: `+rep @العضو`');
+            if (!target || target.id === message.author.id) return message.reply('⚠️ يرجى منشن عضو لإعطائه سمعة: `#rep @العضو`');
 
             const cooldownTime = 24 * 60 * 60 * 1000;
             const lastRepTime = repCooldowns.get(message.author.id);
@@ -472,7 +462,7 @@ client.on('messageCreate', async message => {
                 const remainingTime = cooldownTime - (Date.now() - lastRepTime);
                 const hoursLeft = Math.floor(remainingTime / (1000 * 60 * 60));
                 const minutesLeft = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
-                return message.reply(`⏳ عذراً، يمكنك استخدام أمر \`+rep\` مرة أخرى بعد **${hoursLeft} ساعة و ${minutesLeft} دقيقة**.`);
+                return message.reply(`⏳ عذراً، يمكنك استخدام الأمر مرة أخرى بعد **${hoursLeft} ساعة و ${minutesLeft} دقيقة**.`);
             }
 
             repCooldowns.set(message.author.id, Date.now());
@@ -482,7 +472,7 @@ client.on('messageCreate', async message => {
 
             const repEmbed = new EmbedBuilder()
                 .setColor('#2ECC71')
-                .setTitle('⭐ نظام السمعة / Reputation System')
+                .setTitle('⭐ نظام السمعة')
                 .setDescription(`لقد قمت بإعطاء نقطة سمعة لـ ${target} بنجاح!\nإجمالي نقاط سمعته الآن: **${currentRep + 1} ⭐**`);
             return message.reply({ embeds: [repEmbed] });
         }
@@ -497,7 +487,7 @@ client.on('messageCreate', async message => {
 
             const repBoardEmbed = new EmbedBuilder()
                 .setColor('#F1C40F')
-                .setTitle('🏆 لوحة شرف السمعة / Reputation Leaderboard')
+                .setTitle('🏆 لوحة شرف السمعة')
                 .setDescription(desc);
             return message.reply({ embeds: [repBoardEmbed] });
         }
@@ -507,8 +497,8 @@ client.on('messageCreate', async message => {
             const actCount = userActivityCount.get(target.id) || 0;
             const actEmbed = new EmbedBuilder()
                 .setColor('#3498DB')
-                .setTitle(`📊 نشاط العضو / User Activity: ${target.username}`)
-                .setDescription(`عدد الرسائل والتفاعلات المسجلة لك في هذا السيرفر: **${actCount} تفاعل** 🚀`);
+                .setTitle(`📊 نشاط العضو: ${target.username}`)
+                .setDescription(`عدد التفاعلات المسجلة لك في هذا السيرفر: **${actCount} تفاعل** 🚀`);
             return message.reply({ embeds: [actEmbed] });
         }
 
@@ -522,7 +512,7 @@ client.on('messageCreate', async message => {
 
             const topActEmbed = new EmbedBuilder()
                 .setColor('#2ECC71')
-                .setTitle('🔥 أكثر الأعضاء نشاطاً / Most Active Members')
+                .setTitle('🔥 أكثر الأعضاء نشاطاً')
                 .setDescription(desc);
             return message.reply({ embeds: [topActEmbed] });
         }
@@ -546,23 +536,23 @@ client.on('messageCreate', async message => {
             const currency = args[1] ? args[1].toLowerCase() : '';
 
             if (isNaN(amount) || !currency) {
-                return message.reply('⚠️ **طريقة الاستخدام الصحيحة:**\n`+صرف [المبلغ] [العملة]`');
+                return message.reply('⚠️ **طريقة الاستخدام الصحيحة:**\n`#صرف [المبلغ] [العملة]`');
             }
 
             const baseRate = exchangeRates[currency];
             if (!baseRate) {
-                return message.reply(`❌ عذراً، العملة **"${currency}"** غير متوفرة في القائمة حالياً.`);
+                return message.reply(`❌ عذراً، العملة **"${currency}"** غير متوفرة حالياً.`);
             }
 
             let convertedUSD = (amount / baseRate).toFixed(2);
 
             const convertEmbed = new EmbedBuilder()
                 .setColor('#00FF00')
-                .setTitle('💱 تحويل العملات / Currency Exchange')
+                .setTitle('💱 تحويل العملات')
                 .addFields(
-                    { name: '👤 العضو (User)', value: `${message.author}`, inline: true },
-                    { name: '💵 المبلغ (Amount)', value: `\`${amount} ${currency}\``, inline: true },
-                    { name: '💲 السعر بالدولار (USD)', value: `**$${convertedUSD} USD**`, inline: false }
+                    { name: 'العضو', value: `${message.author}`, inline: true },
+                    { name: 'المبلغ', value: `\`${amount} ${currency}\``, inline: true },
+                    { name: 'السعر بالدولار', value: `**$${convertedUSD} USD**`, inline: false }
                 );
 
             return message.reply({ embeds: [convertEmbed] });
@@ -577,7 +567,7 @@ client.on('messageCreate', async message => {
 
             const rEmbed = new EmbedBuilder()
                 .setColor('#2b2d31')
-                .setTitle(`📜 رتب السيرفر / Server Roles`)
+                .setTitle('📜 رتب السيرفر')
                 .setDescription(rolesList || 'لا توجد رتب.');
             return message.reply({ embeds: [rEmbed] });
         }
@@ -592,7 +582,7 @@ client.on('messageCreate', async message => {
 
             const topEmbed = new EmbedBuilder()
                 .setColor('#5865F2')
-                .setTitle('🏆 لوحة شرف الرسائل اليومية / Daily Messages Top')
+                .setTitle('🏆 أكثر 10 أعضاء نشاطاً بالرسائل اليوم')
                 .setDescription(description);
             return message.reply({ embeds: [topEmbed] });
         }
@@ -601,12 +591,12 @@ client.on('messageCreate', async message => {
             const owner = await message.guild.fetchOwner();
             const sEmbed = new EmbedBuilder()
                 .setColor('#2b2d31')
-                .setTitle(`📊 معلومات السيرفر / Server Info: ${message.guild.name}`)
+                .setTitle(`📊 معلومات السيرفر: ${message.guild.name}`)
                 .setThumbnail(message.guild.iconURL({ dynamic: true }))
                 .addFields(
-                    { name: '👑 الأونر (Owner)', value: `${owner.user.tag}`, inline: true },
-                    { name: '👥 عدد الأعضاء (Members)', value: `${message.guild.memberCount}`, inline: true },
-                    { name: '🚀 مستوى البوستات (Boost Tier)', value: `Level ${message.guild.premiumTier}`, inline: true }
+                    { name: 'الأونر', value: `${owner.user.tag}`, inline: true },
+                    { name: 'عدد الأعضاء', value: `${message.guild.memberCount}`, inline: true },
+                    { name: 'مستوى البوستات', value: `Level ${message.guild.premiumTier}`, inline: true }
                 );
             return message.reply({ embeds: [sEmbed] });
         }
@@ -618,11 +608,11 @@ client.on('messageCreate', async message => {
             
             const embed = new EmbedBuilder()
                 .setColor('#2b2d31')
-                .setTitle(`👤 معلومات العضو / User Profile: ${target.username}`)
+                .setTitle(`👤 معلومات العضو: ${target.username}`)
                 .setThumbnail(target.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: '🆔 الآي دي (ID)', value: `\`${target.id}\``, inline: true },
-                    { name: '📅 تاريخ الانضمام (Joined)', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>`, inline: true }
+                    { name: 'الآي دي', value: `\`${target.id}\``, inline: true },
+                    { name: 'تاريخ الانضمام', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>`, inline: true }
                 );
             return message.reply({ embeds: [embed] });
         }
@@ -631,7 +621,7 @@ client.on('messageCreate', async message => {
             const target = message.mentions.users.first() || message.author;
             const embed = new EmbedBuilder()
                 .setColor('#2b2d31')
-                .setTitle(`🖼️ صورة بروفايل / Avatar: ${target.username}`)
+                .setTitle(`🖼️ صورة بروفايل ${target.username}`)
                 .setImage(target.displayAvatarURL({ dynamic: true, size: 1024 }));
             return message.reply({ embeds: [embed] });
         }
@@ -662,7 +652,7 @@ client.on('messageCreate', async message => {
             if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply('❌ لا تمتلك صلاحية الميوت.');
             const target = message.mentions.members.first();
             const duration = parseInt(args[1]);
-            if (!target || isNaN(duration)) return message.reply('⚠️ طريقة الاستخدام: `+تايم @العضو [الدقائق]`');
+            if (!target || isNaN(duration)) return message.reply('⚠️ طريقة الاستخدام: `#تايم @العضو [الدقائق]`');
             try {
                 await target.timeout(duration * 60 * 1000);
                 return message.reply(`🔇 تم إعطاء ميوت لـ ${target.user.tag} لمدة **${duration}** دقيقة.`);
@@ -688,33 +678,33 @@ client.on('messageCreate', async message => {
             if (!userId) return message.reply('⚠️ يرجى كتابة آي دي صحيح.');
             try {
                 await message.guild.members.unban(userId);
-                return message.reply(`✅ تم فك البان عن العضو بنجاح.`);
+                return message.reply('✅ تم فك البان عن العضو بنجاح.');
             } catch (e) {
                 return message.reply('❌ العضو غير موجود في قائمة المحظورين.');
             }
         }
 
-        if (command === 'مسابقة') {
+        // أمر #gstart الجديد للمسابقات
+        if (command === 'gstart') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply('❌ لا تمتلك صلاحية إدارة السيرفر.');
             const durationArg = args[0];
             const prize = args.slice(1).join(' ');
-            if (!durationArg || !prize) return message.reply('⚠️ مثال للاستخدام: `+مسابقة 1h رتبة مميزة`');
+            if (!durationArg || !prize) return message.reply('⚠️ مثال للاستخدام: `#gstart 1h رتبة مميزة`');
 
             const millis = parseDuration(durationArg);
-            if (!millis) return message.reply('⚠️ صيغة الوقت غير صحيحة.');
+            if (!millis) return message.reply('⚠️ صيغة الوقت غير صحيحة. استخدم الحروف m أو h أو d (مثال: 30m أو 1h أو 2d).');
 
-            const endsAt = Date.now() + millis;
             const participants = new Set();
 
             const gEmbed = new EmbedBuilder()
                 .setColor('#5865F2')
-                .setTitle('🎉 **مسابقة جديدة / GIVEAWAY** 🎉')
-                .setDescription(`الجائزة (Prize): **${prize}**\nتنتهي بعد (Ends in): **${durationArg}**\n\nاضغط على الزر أدناه للمشاركة! 🎁`);
+                .setTitle('🎉 **مسابقة جديدة (GIVEAWAY)** 🎉')
+                .setDescription(`الجائزة: **${prize}**\nتنتهي بعد: **${durationArg}**\n\nاضغط على الزر أدناه للمشاركة! 🎁`);
 
             const gButton = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('join_giveaway')
-                    .setLabel('مشاركة (Join)')
+                    .setLabel('مشاركة في المسابقة')
                     .setStyle(ButtonStyle.Success)
                     .setEmoji('🎉')
             );
@@ -727,10 +717,10 @@ client.on('messageCreate', async message => {
             collector.on('collect', async i => {
                 try {
                     if (participants.has(i.user.id)) {
-                        return i.reply({ content: '❌ أنت مشارك بالفعل!', ephemeral: true });
+                        return i.reply({ content: '❌ أنت مشارك بالفعل في المسابقة!', ephemeral: true });
                     }
                     participants.add(i.user.id);
-                    await i.reply({ content: '✅ تم تسجيل مشاركتك!', ephemeral: true });
+                    await i.reply({ content: '✅ تم تسجيل مشاركتك بنجاح!', ephemeral: true });
                 } catch (err) {
                     console.error(err);
                 }
@@ -787,18 +777,18 @@ client.on('messageCreate', async message => {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply('❌ لا تمتلك صلاحية.');
             const target = message.mentions.members.first();
             const role = message.mentions.roles.first();
-            if (!target || !role) return message.reply('⚠️ الاستخدام: `+رول @العضو @الرول`');
+            if (!target || !role) return message.reply('⚠️ الاستخدام: `#رول @العضو @الرول`');
             if (target.roles.cache.has(role.id)) {
                 await target.roles.remove(role);
-                return message.reply(`❌ تم إزالة الرتبة.`);
+                return message.reply('❌ تم إزالة الرتبة.');
             } else {
                 await target.roles.add(role);
-                return message.reply(`✅ تم إعطاء الرتبة.`);
+                return message.reply('✅ تم إعطاء الرتبة.');
             }
         }
 
         if (command === 'بنغ') {
-            return message.reply(`🏓 سرعة استجابة البوت / Ping: **${client.ws.ping}ms**`);
+            return message.reply(`🏓 سرعة استجابة البوت: **${client.ws.ping}ms**`);
         }
 
         if (command === 'قول') {
@@ -816,7 +806,7 @@ client.on('messageCreate', async message => {
                     channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false }).catch(() => {});
                 }
             });
-            return message.reply('🚨 **تم تفعيل الطوارئ / Lockdown Activated!**');
+            return message.reply('🚨 **تم تفعيل الطوارئ!**');
         }
 
         if (command === 'فك-طوارئ') {
@@ -826,7 +816,7 @@ client.on('messageCreate', async message => {
                     channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: null }).catch(() => {});
                 }
             });
-            return message.reply('🟢 **تم إلغاء الطوارئ / Lockdown Lifted!**');
+            return message.reply('🟢 **تم إلغاء الطوارئ!**');
         }
 
         if (command === 'بطيء') {
@@ -837,65 +827,78 @@ client.on('messageCreate', async message => {
             return message.reply(`⏱️ تم ضبط الشات البطيء على **${time}** ثانية.`);
         }
 
-        // قائمة +help المنسقة والمرتبة بالعربي والإنجليزي
+        // قائمة #help المعدلة (بدون إنجليزي، كل أمر تحته شرحه بشكل منفصل تماماً)
         if (command === 'help') {
-            const totalCommandsCount = 45; // تم تحديث العدد ليناسب الأوامر الجديدة
+            const totalCommandsCount = 45;
 
             const getEmbed = (page) => {
                 if (page === '1') {
                     return new EmbedBuilder()
                         .setColor('#5865F2')
-                        .setTitle('📌 الأوامر العامة والمعلوماتية / General & Info Commands')
-                        .setDescription(`إجمالي الأوامر / Total Commands: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة أدناه / Select a category below:`)
+                        .setTitle('📌 أوامر عامة')
+                        .setDescription(`إجمالي الأوامر: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة بالأسفل:`)
                         .addFields(
-                            { name: '```+status```', value: '> إحصائيات البوت والسرعة / Bot Stats & Ping', inline: false },
-                            { name: '```+afk [السبب]```', value: '> تحديد حالتك كغائب / Set AFK status', inline: false },
-                            { name: '```+سيرفر / +server```', value: '> معلومات السيرفر المفصلة / Server details', inline: false },
-                            { name: '```+servericon / +serverbanner```', value: '> عرض صورة وبانر السيرفر / Server images', inline: false },
-                            { name: '```+بروفايل [@العضو] / +profile```', value: '> معلومات العضو وتاريخ الانضمام / User info', inline: false },
-                            { name: '```+صورة [@العضو] / +avatar```', value: '> عرض صورة بروفايل العضو / User avatar', inline: false },
-                            { name: '```+رتب / +roles```', value: '> عرض رتب السيرفر / Server roles list', inline: false },
-                            { name: '```+توب / +topactive```', value: '> عرض الأعضاء الأكثر تفاعلاً / Active members board', inline: false },
-                            { name: '```+activity [@العضو]```', value: '> معرفة حجم نشاطك وتفاعلك / User activity count', inline: false },
-                            { name: '```+firstmsg [@العضو]```', value: '> جلب أول رسالة أرسلها الشخص / First sent message', inline: false },
-                            { name: '```+بنغ / +ping```', value: '> معرفة سرعة الاستجابة / Check bot latency', inline: false }
+                            { name: '#status', value: 'إحصائيات البوت وسرعة البينغ ووقت التشغيل.', inline: false },
+                            { name: '#afk [السبب]', value: 'لتحديد حالتك كغائب في السيرفر وتنبيه من يمنشنك.', inline: false },
+                            { name: '#سيرفر', value: 'لعرض معلومات السيرفر المفصلة وأعداد الأعضاء.', inline: false },
+                            { name: '#servericon', value: 'لعرض وصورة شعار السيرفر الحالي.', inline: false },
+                            { name: '#serverbanner', value: 'لعرض بانر السيرفر إن وجد.', inline: false },
+                            { name: '#بروفايل [@العضو]', value: 'لعرض معلومات العضو وتاريخ انضمامه للسيرفر.', inline: false },
+                            { name: '#صورة [@العضو]', value: 'لعرض صورة بروفايل العضو بحجم كبير.', inline: false },
+                            { name: '#رتب', value: 'لعرض قائمة جميع رتب السيرفر مرتبة من الأقوى.', inline: false },
+                            { name: '#توب', value: 'لعرض أكثر 10 أعضاء نشاطاً بالرسائل اليومية.', inline: false },
+                            { name: '#topactive', value: 'لعرض أكثر الأعضاء تفاعلاً ونشاطاً.', inline: false },
+                            { name: '#activity [@العضو]', value: 'لمعرفة عدد رسائل وتفاعلات العضو.', inline: false },
+                            { name: '#firstmsg [@العضو]', value: 'لجلب أول رسالة أرسلها الشخص في الروم.', inline: false },
+                            { name: '#بنغ', value: 'لمعرفة سرعة استجابة البوت الحالية.', inline: false }
                         );
                 } else if (page === '2') {
                     return new EmbedBuilder()
                         .setColor('#E67E22')
-                        .setTitle('🎲 الألعاب، الحظ والتحديات / Games & Fun Commands')
+                        .setTitle('🎲 أوامر ألعاب')
                         .addFields(
-                            { name: '```+luck [@العضو]```', value: '> اختبار نسبة الحظ اليومي / Daily luck test', inline: false },
-                            { name: '```+fortune```', value: '> توقع عشوائي لمستقبلك / Fortune cookie prediction', inline: false },
-                            { name: '```+challenge [@العضو]```', value: '> بدء تحدي ممتع بين الأعضاء / Start a challenge', inline: false },
-                            { name: '```+rep [@العضو] / +repboard```', value: '> نظام السمعة ولوحة الشرف / Reputation & leaderboard', inline: false }
+                            { name: '#luck [@العضو]', value: 'اختبار نسبة الحظ اليومي.', inline: false },
+                            { name: '#fortune', value: 'الحصول على توقع عشوائي وممتع لمستقبلك.', inline: false },
+                            { name: '#challenge [@العضو]', value: 'لبدء تحدي عشوائي وممتع مع أحد الأعضاء.', inline: false },
+                            { name: '#rep [@العضو]', value: 'لإعطاء نقطة سمعة لعضو متميز.', inline: false },
+                            { name: '#repboard', value: 'لعرض لوحة شرف السمعة وأعلى الأعضاء نقاطاً.', inline: false }
                         );
                 } else if (page === '3') {
                     return new EmbedBuilder()
                         .setColor('#2ECC71')
-                        .setTitle('🛡️ الإشراف وإدارة الرومات / Moderation & Utility')
+                        .setTitle('🛡️ أوامر ادارية')
                         .addFields(
-                            { name: '```+snipe```', value: '> جلب آخر رسالة محذوفة بأمبيد / View last deleted message', inline: false },
-                            { name: '```+snipeall```', value: '> عرض سجل رسائل السنايب بالروم / View all recent deleted messages', inline: false },
-                            { name: '```+i [@العضو]```', value: '> فحص تفاصيل الانفايت وحالة احتسابه / Check invite info', inline: false },
-                            { name: '```+استدعاء أو +c [@العضو] [السبب]```', value: '> استدعاء إداري للعضو في الخاص / Staff member summon', inline: false },
-                            { name: '```+warn [@العضو] [السبب]```', value: '> تحذير شخص وإرسال التفاصيل بالخاص / Warn member', inline: false },
-                            { name: '```+slowmode [الثواني]```', value: '> ضبط الوضع البطيء للشات / Channel slowmode', inline: false },
-                            { name: '```+nick [@العضو] [الاسم]```', value: '> تغيير نك نيم الشخص / Change user nickname', inline: false },
-                            { name: '```+بان / +كيك / +فكبان / +تايم```', value: '> أوامر العقوبات والطرد والميوت / Mod actions', inline: false },
-                            { name: '```+مسح [العدد] / +clear```', value: '> مسح رسائل الشات / Bulk delete messages', inline: false },
-                            { name: '```+قفل / +فتح / +اخفاء / +اظهار```', value: '> التحكم بخصائص الرومات / Channel permissions', inline: false },
-                            { name: '```+رول / +رول-جماعي```', value: '> منح الرتب الفردية والجماعية / Role management', inline: false },
-                            { name: '```+مسابقة [الوقت] [الجائزة]```', value: '> مسابقات تفاعلية بزر / Giveaway with button', inline: false },
-                            { name: '```+صرف [المبلغ] [العملة]```', value: '> تحويل العملات بدقة / Currency exchange calculator', inline: false }
+                            { name: '#snipe', value: 'لعرض آخر رسالة تم حذفها في الروم بأمبيد.', inline: false },
+                            { name: '#snipeall', value: 'لعرض سجل آخر الرسائل المحذوفة في الروم.', inline: false },
+                            { name: '#i [@العضو]', value: 'لفحص تفاصيل الانفايت وحالة احتسابه.', inline: false },
+                            { name: '#استدعاء [@العضو] [السبب]', value: 'لاستدعاء عضو إدارياً عبر رسالة خاصة.', inline: false },
+                            { name: '#warn [@العضو] [السبب]', value: 'لتحذير عضو وإرسال التفاصيل بالخاص.', inline: false },
+                            { name: '#slowmode [الثواني]', value: 'لضبط وضع الشات البطيء للروم.', inline: false },
+                            { name: '#nick [@العضو] [الاسم]', value: 'تغيير أو تصفير نك نيم العضو.', inline: false },
+                            { name: '#بان [@العضو]', value: 'لتبنيد العضو من السيرفر نهائياً.', inline: false },
+                            { name: '#كيك [@العضو]', value: 'لطرد العضو من السيرفر.', inline: false },
+                            { name: '#فكبان [آي دي العضو]', value: 'لفك البان عن عضو محظور.', inline: false },
+                            { name: '#تايم [@العضو] [الدقائق]', value: 'لإعطاء العضو ميوت مؤقت (تايم آوت).', inline: false },
+                            { name: '#انتايم [@العضو]', value: 'لإزالة الميوت المؤقت عن العضو.', inline: false },
+                            { name: '#مسح [العدد]', value: 'لمسح رسائل الشات بسرعة (بين 1 و 100).', inline: false },
+                            { name: '#قفل', value: 'لقفل الروم الحالي ومنع الأعضاء من الكتابة.', inline: false },
+                            { name: '#فتح', value: 'لفتح الروم الحالي والسماح بالكتابة.', inline: false },
+                            { name: '#اخفاء', value: 'لإخفاء الروم عن الأعضاء.', inline: false },
+                            { name: '#اظهار', value: 'لإظهار الروم وجعله مرئياً.', inline: false },
+                            { name: '#رول [@العضو] [@الرول]', value: 'لإعطاء أو إزالة رتبة عن عضو.', inline: false },
+                            { name: '#رول-جماعي [@الرول]', value: 'لإعطاء رتبة معينة لجميع أعضاء السيرفر.', inline: false },
+                            { name: '#gstart [الوقت] [الجائزة]', value: 'لبدء مسابقة جديدة مع زر تفاعلي.', inline: false },
+                            { name: '#صرف [المبلغ] [العملة]', value: 'لتحويل العملات بدقة.', inline: false }
                         );
                 } else if (page === '4') {
                     return new EmbedBuilder()
                         .setColor('#FF0000')
-                        .setTitle('👑 قائمة الأونر الخاصة / Server Owner Commands')
+                        .setTitle('👑 أوامر الأونر')
                         .addFields(
-                            { name: '```+طوارئ / +فك-طوارئ```', value: '> قفل أو فتح جميع رومات السيرفر / Global server lockdown', inline: false },
-                            { name: '```+ايقاف-السستم / +تشغيل-السستم```', value: '> إيقاف أو تشغيل نظام البوت بالكامل / Toggle system active', inline: false }
+                            { name: '#طوارئ', value: 'لقفل جميع رومات السيرفر في حالات الطوارئ.', inline: false },
+                            { name: '#فك-طوارئ', value: 'لإلغاء الطوارئ وفتح جميع الرومات.', inline: false },
+                            { name: '#ايقاف-السستم', value: 'لإيقاف نظام البوت بشكل كامل.', inline: false },
+                            { name: '#تشغيل-السستم', value: 'لتشغيل نظام البوت وعمله بنجاح.', inline: false }
                         );
                 }
             };
@@ -904,13 +907,13 @@ client.on('messageCreate', async message => {
                 return new ActionRowBuilder().addComponents(
                     new StringSelectMenuBuilder()
                         .setCustomId('help_menu')
-                        .setPlaceholder('📂 اضغط هنا لاختيار القسم المطلوب / Select a Category...')
+                        .setPlaceholder('📂 اختر القسم المطلوب من القائمة...')
                         .setDisabled(disabled)
                         .addOptions([
-                            { label: 'الأوامر العامة والمعلوماتية | General & Info', value: '1', emoji: '📌' },
-                            { label: 'الألعاب، الحظ والتحديات | Games & Fun', value: '2', emoji: '🎲' },
-                            { label: 'الإشراف وإدارة الرومات | Moderation & Utility', value: '3', emoji: '🛡️' },
-                            { label: 'قائمة الأونر الخاصة | Server Owner', value: '4', emoji: '👑' }
+                            { label: 'أوامر عامة', value: '1', emoji: '📌' },
+                            { label: 'أوامر ألعاب', value: '2', emoji: '🎲' },
+                            { label: 'أوامر ادارية', value: '3', emoji: '🛡️' },
+                            { label: 'أوامر الأونر', value: '4', emoji: '👑' }
                         ])
                 );
             };
@@ -923,7 +926,7 @@ client.on('messageCreate', async message => {
                     const selectedValue = i.values[0];
 
                     if (selectedValue === '4' && i.user.id !== message.guild.ownerId) {
-                        return i.reply({ content: '❌ **غير متوفر!** هذه القائمة مخصصة لصاحب السيرفر (الأونر) فقط.', ephemeral: true });
+                        return i.reply({ content: '❌ هذه القائمة مخصصة لصاحب السيرفر (الأونر) فقط.', ephemeral: true });
                     }
 
                     if (i.user.id !== message.author.id) {
