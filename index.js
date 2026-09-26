@@ -40,6 +40,8 @@ const exchangeRates = {
     'lbp': 89500,
     'جنيه': 42,
     'egp': 42,
+    'دينار': 1310,
+    'iqd': 1310,
     'دولار': 1.0,
     'usd': 1.0,
     'usdt': 1.0
@@ -536,7 +538,7 @@ client.on('messageCreate', async message => {
             const currency = args[1] ? args[1].toLowerCase() : '';
 
             if (isNaN(amount) || !currency) {
-                return message.reply('⚠️ **طريقة الاستخدام الصحيحة:**\n`#صرف [المبلغ] [العملة]`');
+                return message.reply('⚠️ **طريقة الاستخدام الصحيحة:**\n`#صرف [المبلغ] [العملة]` (مثال: `#صرف 50000 دينار`)');
             }
 
             const baseRate = exchangeRates[currency];
@@ -684,7 +686,7 @@ client.on('messageCreate', async message => {
             }
         }
 
-        // أمر #gstart المعدل بالرياكشن
+        // أمر #gstart المعتمد على الرياكشن
         if (command === 'gstart') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply('❌ لا تمتلك صلاحية إدارة السيرفر.');
             const durationArg = args[0];
@@ -847,69 +849,69 @@ client.on('messageCreate', async message => {
                     return new EmbedBuilder()
                         .setColor('#5865F2')
                         .setTitle('📌 أوامر عامة')
-                        .setDescription(`إجمالي الأوامر: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة بالأسفل:`)
+                        .setDescription(`إجمالي الأوامر: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة بالأسفل (انقر على الأمر لنسخه):`)
                         .addFields(
-                            { name: '#status', value: 'إحصائيات البوت وسرعة البينغ ووقت التشغيل.', inline: false },
-                            { name: '#afk [السبب]', value: 'لتحديد حالتك كغائب في السيرفر وتنبيه من يمنشنك.', inline: false },
-                            { name: '#سيرفر', value: 'لعرض معلومات السيرفر المفصلة وأعداد الأعضاء.', inline: false },
-                            { name: '#servericon', value: 'لعرض وصورة شعار السيرفر الحالي.', inline: false },
-                            { name: '#serverbanner', value: 'لعرض بانر السيرفر إن وجد.', inline: false },
-                            { name: '#بروفايل [@العضو]', value: 'لعرض معلومات العضو وتاريخ انضمامه للسيرفر.', inline: false },
-                            { name: '#صورة [@العضو]', value: 'لعرض صورة بروفايل العضو بحجم كبير.', inline: false },
-                            { name: '#رتب', value: 'لعرض قائمة جميع رتب السيرفر مرتبة من الأقوى.', inline: false },
-                            { name: '#توب', value: 'لعرض أكثر 10 أعضاء نشاطاً بالرسائل اليومية.', inline: false },
-                            { name: '#topactive', value: 'لعرض أكثر الأعضاء تفاعلاً ونشاطاً.', inline: false },
-                            { name: '#activity [@العضو]', value: 'لمعرفة عدد رسائل وتفاعلات العضو.', inline: false },
-                            { name: '#firstmsg [@العضو]', value: 'لجلب أول رسالة أرسلها الشخص في الروم.', inline: false },
-                            { name: '#بنغ', value: 'لمعرفة سرعة استجابة البوت الحالية.', inline: false }
+                            { name: '`#status`', value: 'إحصائيات البوت وسرعة البينغ ووقت التشغيل.', inline: false },
+                            { name: '`#afk [السبب]`', value: 'لتحديد حالتك كغائب في السيرفر وتنبيه من يمنشنك.', inline: false },
+                            { name: '`#سيرفر`', value: 'لعرض معلومات السيرفر المفصلة وأعداد الأعضاء.', inline: false },
+                            { name: '`#servericon`', value: 'لعرض وصورة شعار السيرفر الحالي.', inline: false },
+                            { name: '`#serverbanner`', value: 'لعرض بانر السيرفر إن وجد.', inline: false },
+                            { name: '`#بروفايل [@العضو]`', value: 'لعرض معلومات العضو وتاريخ انضمامه للسيرفر.', inline: false },
+                            { name: '`#صورة [@العضو]`', value: 'لعرض صورة بروفايل العضو بحجم كبير.', inline: false },
+                            { name: '`#رتب`', value: 'لعرض قائمة جميع رتب السيرفر مرتبة من الأقوى.', inline: false },
+                            { name: '`#توب`', value: 'لعرض أكثر 10 أعضاء نشاطاً بالرسائل اليومية.', inline: false },
+                            { name: '`#topactive`', value: 'لعرض أكثر الأعضاء تفاعلاً ونشاطاً.', inline: false },
+                            { name: '`#activity [@العضو]`', value: 'لمعرفة عدد رسائل وتفاعلات العضو.', inline: false },
+                            { name: '`#firstmsg [@العضو]`', value: 'لجلب أول رسالة أرسلها الشخص في الروم.', inline: false },
+                            { name: '`#بنغ`', value: 'لمعرفة سرعة استجابة البوت الحالية.', inline: false }
                         );
                 } else if (page === '2') {
                     return new EmbedBuilder()
                         .setColor('#E67E22')
                         .setTitle('🎲 أوامر ألعاب')
                         .addFields(
-                            { name: '#luck [@العضو]', value: 'اختبار نسبة الحظ اليومي.', inline: false },
-                            { name: '#fortune', value: 'الحصول على توقع عشوائي وممتع لمستقبلك.', inline: false },
-                            { name: '#challenge [@العضو]', value: 'لبدء تحدي عشوائي وممتع مع أحد الأعضاء.', inline: false },
-                            { name: '#rep [@العضو]', value: 'لإعطاء نقطة سمعة لعضو متميز.', inline: false },
-                            { name: '#repboard', value: 'لعرض لوحة شرف السمعة وأعلى الأعضاء نقاطاً.', inline: false }
+                            { name: '`#luck [@العضو]`', value: 'اختبار نسبة الحظ اليومي.', inline: false },
+                            { name: '`#fortune`', value: 'الحصول على توقع عشوائي وممتع لمستقبلك.', inline: false },
+                            { name: '`#challenge [@العضو]`', value: 'لبدء تحدي عشوائي وممتع مع أحد الأعضاء.', inline: false },
+                            { name: '`#rep [@العضو]`', value: 'لإعطاء نقطة سمعة لعضو متميز.', inline: false },
+                            { name: '`#repboard`', value: 'لعرض لوحة شرف السمعة وأعلى الأعضاء نقاطاً.', inline: false }
                         );
                 } else if (page === '3') {
                     return new EmbedBuilder()
                         .setColor('#2ECC71')
                         .setTitle('🛡️ أوامر ادارية')
                         .addFields(
-                            { name: '#snipe', value: 'لعرض آخر رسالة تم حذفها في الروم بأمبيد.', inline: false },
-                            { name: '#snipeall', value: 'لعرض سجل آخر الرسائل المحذوفة في الروم.', inline: false },
-                            { name: '#i [@العضو]', value: 'لفحص تفاصيل الانفايت وحالة احتسابه.', inline: false },
-                            { name: '#استدعاء [@العضو] [السبب]', value: 'لاستدعاء عضو إدارياً عبر رسالة خاصة.', inline: false },
-                            { name: '#warn [@العضو] [السبب]', value: 'لتحذير عضو وإرسال التفاصيل بالخاص.', inline: false },
-                            { name: '#slowmode [الثواني]', value: 'لضبط وضع الشات البطيء للروم.', inline: false },
-                            { name: '#nick [@العضو] [الاسم]', value: 'تغيير أو تصفير نك نيم العضو.', inline: false },
-                            { name: '#بان [@العضو]', value: 'لتبنيد العضو من السيرفر نهائياً.', inline: false },
-                            { name: '#كيك [@العضو]', value: 'لطرد العضو من السيرفر.', inline: false },
-                            { name: '#فكبان [آي دي العضو]', value: 'لفك البان عن عضو محظور.', inline: false },
-                            { name: '#تايم [@العضو] [الدقائق]', value: 'لإعطاء العضو ميوت مؤقت (تايم آوت).', inline: false },
-                            { name: '#انتايم [@العضو]', value: 'لإزالة الميوت المؤقت عن العضو.', inline: false },
-                            { name: '#مسح [العدد]', value: 'لمسح رسائل الشات بسرعة (بين 1 و 100).', inline: false },
-                            { name: '#قفل', value: 'لقفل الروم الحالي ومنع الأعضاء من الكتابة.', inline: false },
-                            { name: '#فتح', value: 'لفتح الروم الحالي والسماح بالكتابة.', inline: false },
-                            { name: '#اخفاء', value: 'لإخفاء الروم عن الأعضاء.', inline: false },
-                            { name: '#اظهار', value: 'لإظهار الروم وجعله مرئياً.', inline: false },
-                            { name: '#رول [@العضو] [@الرول]', value: 'لإعطاء أو إزالة رتبة عن عضو.', inline: false },
-                            { name: '#رول-جماعي [@الرول]', value: 'لإعطاء رتبة معينة لجميع أعضاء السيرفر.', inline: false },
-                            { name: '#gstart [الوقت] [الجائزة]', value: 'لبدء مسابقة جديدة تعتمد على التفاعل (الرياكشن).', inline: false },
-                            { name: '#صرف [المبلغ] [العملة]', value: 'لتحويل العملات بدقة.', inline: false }
+                            { name: '`#snipe`', value: 'لعرض آخر رسالة تم حذفها في الروم بأمبيد.', inline: false },
+                            { name: '`#snipeall`', value: 'لعرض سجل آخر الرسائل المحذوفة في الروم.', inline: false },
+                            { name: '`#i [@العضو]`', value: 'لفحص تفاصيل الانفايت وحالة احتسابه.', inline: false },
+                            { name: '`#استدعاء [@العضو] [السبب]`', value: 'لاستدعاء عضو إدارياً عبر رسالة خاصة.', inline: false },
+                            { name: '`#warn [@العضو] [السبب]`', value: 'لتحذير عضو وإرسال التفاصيل بالخاص.', inline: false },
+                            { name: '`#slowmode [الثواني]`', value: 'لضبط وضع الشات البطيء للروم.', inline: false },
+                            { name: '`#nick [@العضو] [الاسم]`', value: 'تغيير أو تصفير نك نيم العضو.', inline: false },
+                            { name: '`#بان [@العضو]`', value: 'لتبنيد العضو من السيرفر نهائياً.', inline: false },
+                            { name: '`#كيك [@العضو]`', value: 'لطرد العضو من السيرفر.', inline: false },
+                            { name: '`#فكبان [آي دي العضو]`', value: 'لفك البان عن عضو محظور.', inline: false },
+                            { name: '`#تايم [@العضو] [الدقائق]`', value: 'لإعطاء العضو ميوت مؤقت (تايم آوت).', inline: false },
+                            { name: '`#انتايم [@العضو]`', value: 'لإزالة الميوت المؤقت عن العضو.', inline: false },
+                            { name: '`#مسح [العدد]`', value: 'لمسح رسائل الشات بسرعة (بين 1 و 100).', inline: false },
+                            { name: '`#قفل`', value: 'لقفل الروم الحالي ومنع الأعضاء من الكتابة.', inline: false },
+                            { name: '`#فتح`', value: 'لفتح الروم الحالي والسماح بالكتابة.', inline: false },
+                            { name: '`#اخفاء`', value: 'لإخفاء الروم عن الأعضاء.', inline: false },
+                            { name: '`#اظهار`', value: 'لإظهار الروم وجعله مرئياً.', inline: false },
+                            { name: '`#رول [@العضو] [@الرول]`', value: 'لإعطاء أو إزالة رتبة عن عضو.', inline: false },
+                            { name: '`#رول-جماعي [@الرول]`', value: 'لإعطاء رتبة معينة لجميع أعضاء السيرفر.', inline: false },
+                            { name: '`#gstart [الوقت] [الجائزة]`', value: 'لبدء مسابقة جديدة تعتمد على التفاعل (الرياكشن).', inline: false },
+                            { name: '`#صرف [المبلغ] [العملة]`', value: 'لتحويل العملات بدقة (يدعم الدينار العراقي `#صرف 50000 دينار`).', inline: false }
                         );
                 } else if (page === '4') {
                     return new EmbedBuilder()
                         .setColor('#FF0000')
                         .setTitle('👑 أوامر الأونر')
                         .addFields(
-                            { name: '#طوارئ', value: 'لقفل جميع رومات السيرفر في حالات الطوارئ.', inline: false },
-                            { name: '#فك-طوارئ', value: 'لإلغاء الطوارئ وفتح جميع الرومات.', inline: false },
-                            { name: '#ايقاف-السستم', value: 'لإيقاف نظام البوت بشكل كامل.', inline: false },
-                            { name: '#تشغيل-السستم', value: 'لتشغيل نظام البوت وعمله بنجاح.', inline: false }
+                            { name: '`#طوارئ`', value: 'لقفل جميع رومات السيرفر في حالات الطوارئ.', inline: false },
+                            { name: '`#فك-طوارئ`', value: 'لإلغاء الطوارئ وفتح جميع الرومات.', inline: false },
+                            { name: '`#ايقاف-السستم`', value: 'لإيقاف نظام البوت بشكل كامل.', inline: false },
+                            { name: '`#تشغيل-السستم`', value: 'لتشغيل نظام البوت وعمله بنجاح.', inline: false }
                         );
                 }
             };
