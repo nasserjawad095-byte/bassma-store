@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -684,7 +684,7 @@ client.on('messageCreate', async message => {
             }
         }
 
-        // أمر #gstart الجديد للمسابقات
+        // أمر #gstart المعدل بالرياكشن
         if (command === 'gstart') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply('❌ لا تمتلك صلاحية إدارة السيرفر.');
             const durationArg = args[0];
@@ -694,37 +694,49 @@ client.on('messageCreate', async message => {
             const millis = parseDuration(durationArg);
             if (!millis) return message.reply('⚠️ صيغة الوقت غير صحيحة. استخدم الحروف m أو h أو d (مثال: 30m أو 1h أو 2d).');
 
-            const participants = new Set();
-
             const gEmbed = new EmbedBuilder()
                 .setColor('#5865F2')
                 .setTitle('🎉 **مسابقة جديدة (GIVEAWAY)** 🎉')
-                .setDescription(`الجائزة: **${prize}**\nتنتهي بعد: **${durationArg}**\n\nاضغط على الزر أدناه للمشاركة! 🎁`);
+                .setDescription(`الجائزة: **${prize}**\nتنتهي بعد: **${durationArg}**\n\nتفاعل بـ 🎉 للمشاركة في المسابقة! 🎁`)
+                .setTimestamp(Date.now() + millis);
 
-            const gButton = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('join_giveaway')
-                    .setLabel('مشاركة في المسابقة')
-                    .setStyle(ButtonStyle.Success)
-                    .setEmoji('🎉')
-            );
-
-            const gMsg = await message.channel.send({ embeds: [gEmbed], components: [gButton] });
+            const gMsg = await message.channel.send({ embeds: [gEmbed] });
             await message.delete().catch(() => {});
+            await gMsg.react('🎉');
 
-            const collector = gMsg.createMessageComponentCollector({ time: millis });
-
-            collector.on('collect', async i => {
+            setTimeout(async () => {
                 try {
-                    if (participants.has(i.user.id)) {
-                        return i.reply({ content: '❌ أنت مشارك بالفعل في المسابقة!', ephemeral: true });
+                    const fetchedMsg = await message.channel.messages.fetch(gMsg.id).catch(() => null);
+                    if (!fetchedMsg) return;
+
+                    const reaction = fetchedMsg.reactions.cache.get('🎉');
+                    if (!reaction) {
+                        return message.channel.send('❌ حدث خطأ، لم يتم العثور على التفاعل الخاص بالمسابقة.');
                     }
-                    participants.add(i.user.id);
-                    await i.reply({ content: '✅ تم تسجيل مشاركتك بنجاح!', ephemeral: true });
+
+                    const users = await reaction.users.fetch();
+                    const validUsers = users.filter(user => !user.bot);
+
+                    if (validUsers.size === 0) {
+                        const endedEmbed = new EmbedBuilder()
+                            .setColor('#ED4245')
+                            .setTitle('🎉 **انتهت المسابقة** 🎉')
+                            .setDescription(`الجائزة: **${prize}**\n\n❌ للأسف لم يشارك أحد في المسابقة.`);
+                        return fetchedMsg.edit({ embeds: [endedEmbed] });
+                    }
+
+                    const winner = validUsers.random();
+                    const winnerEmbed = new EmbedBuilder()
+                        .setColor('#57F287')
+                        .setTitle('🎉 **انتهت المسابقة** 🎉')
+                        .setDescription(`الجائزة: **${prize}**\n\n🏆 الفائز: ${winner} (مبروك!)`);
+
+                    await fetchedMsg.edit({ embeds: [winnerEmbed] });
+                    await message.channel.send(`🎊 مبروك ${winner}! لقد فزت بـ **${prize}**!`);
                 } catch (err) {
-                    console.error(err);
+                    console.error('Error ending giveaway:', err);
                 }
-            });
+            }, millis);
         }
 
         if (command === 'كيك') {
@@ -827,7 +839,6 @@ client.on('messageCreate', async message => {
             return message.reply(`⏱️ تم ضبط الشات البطيء على **${time}** ثانية.`);
         }
 
-        // قائمة #help المعدلة (بدون إنجليزي، كل أمر تحته شرحه بشكل منفصل تماماً)
         if (command === 'help') {
             const totalCommandsCount = 45;
 
@@ -887,7 +898,7 @@ client.on('messageCreate', async message => {
                             { name: '#اظهار', value: 'لإظهار الروم وجعله مرئياً.', inline: false },
                             { name: '#رول [@العضو] [@الرول]', value: 'لإعطاء أو إزالة رتبة عن عضو.', inline: false },
                             { name: '#رول-جماعي [@الرول]', value: 'لإعطاء رتبة معينة لجميع أعضاء السيرفر.', inline: false },
-                            { name: '#gstart [الوقت] [الجائزة]', value: 'لبدء مسابقة جديدة مع زر تفاعلي.', inline: false },
+                            { name: '#gstart [الوقت] [الجائزة]', value: 'لبدء مسابقة جديدة تعتمد على التفاعل (الرياكشن).', inline: false },
                             { name: '#صرف [المبلغ] [العملة]', value: 'لتحويل العملات بدقة.', inline: false }
                         );
                 } else if (page === '4') {
