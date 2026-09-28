@@ -28,9 +28,8 @@ const userActivityCount = new Map();
 const inviteTracker = new Map();
 const leftMembersCache = new Set();
 const snipeCache = new Map();
-
-// نظام إعداد التكتات المؤقت لكل سيرفر
 const ticketSetups = new Map();
+const guildInvitesCache = new Map();
 
 const exchangeRates = {
     'ريال': 3.75,
@@ -61,8 +60,6 @@ function parseDuration(timeStr) {
     if (unit === 'd') return value * 24 * 60 * 60 * 1000;
     return null;
 }
-
-const guildInvitesCache = new Map();
 
 async function cacheGuildInvites(guild) {
     try {
@@ -1057,7 +1054,7 @@ client.on('messageCreate', async message => {
     }
 });
 
-// ==================== التفاعل مع لوحة إعداد التكتات والأزرار والتذاكر ====================
+// ==================== التفاعل مع الأزرار والقوائم والـ Modals ====================
 client.on('interactionCreate', async interaction => {
     try {
         if (!interaction.guild) return;
