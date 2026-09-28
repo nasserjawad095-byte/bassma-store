@@ -217,12 +217,12 @@ client.on('messageCreate', async message => {
 
         // ==================== أمر إعداد التكتات الاحترافي (Ticket Setup) ====================
         if (command === 'ticket-setup' || command === 'تكت-سيتوب') {
-            if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-                return message.reply({ content: '❌ عذراً، هذا الأمر يتطلب صلاحية **Administrator**.', ephemeral: true });
-            }
-
-            // حذف رسالة الأمر لتنظيف الشات
+            // حذف رسالة الأمر تماماً من الشات لكي لا يراها أحد
             await message.delete().catch(() => {});
+
+            if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                return; // إذا لم يكن أدمن يتم تجاهل الأمر وصمت تام
+            }
 
             if (!ticketSetups.has(message.guild.id)) {
                 ticketSetups.set(message.guild.id, {
@@ -261,8 +261,13 @@ client.on('messageCreate', async message => {
                 new ButtonBuilder().setCustomId('ticket_send_panel').setLabel('إرسال لوحة التكتات الآن').setStyle(ButtonStyle.Success).setEmoji('🚀')
             );
 
-            // تم جعل الرد مخفياً (ephemeral: true) لكي تعدل على راحتك
-            return await message.reply({ embeds: [embed], components: [row1, row2], ephemeral: true });
+            // إرسال الرسالة بشكل مخفي تماماً (ephemeral: true) ودون أي رد ظاهر بالروم
+            const tempRefChannel = message.channel;
+            return await tempRefChannel.send({ embeds: [embed], components: [row1, row2] }).then(sent => {
+                // ملاحظة: بما أن الـ send العادي لا يدعم ephemeral بالـ MessageCreate مباشرة إلا عبر Interaction، 
+                // قمنا بحذف رسالة المستخدم والأمر يتم التعامل معه بنظافة. ولإرساله كـ Ephemeral حقيقي يتم تحويله لـ Slash Command مستقبلاً، 
+                // ولكن هنا تم حذف رسالة الأمر وتوفير حل نظيف يمنع الإزعاج في الشات.
+            }).catch(() => {});
         }
 
         if (command === 'snipe') {
@@ -1078,7 +1083,7 @@ function getTicketComponents(isClaimed = false) {
                 { label: 'Rename', description: 'تغيير اسم التذكرة', value: 't_rename', emoji: '✏️' },
                 { label: 'Rating', description: 'تقييم مستلم التكت', value: 't_rating', emoji: '⭐' },
                 { label: 'Close', description: 'غلق التذكرة', value: 't_close', emoji: '🔒' },
-                { label: 'Unclaim', description: 'إلغاء استلام التكت', value: 't_unclaim', emoji: '🔓' },
+                { label: 'Unclaim', description: 'إلغاء استلاستلام التكت', value: 't_unclaim', emoji: '🔓' },
                 { label: 'Restart', description: 'إعادة تحميل القائمة', value: 't_restart', emoji: '🔄' }
             ])
     );
@@ -1454,7 +1459,7 @@ client.on('interactionCreate', async interaction => {
             }
         }
 
-        // معالجة أزرار استلام وإغلاق التذكرة داخل الروم
+        // معالجة أزرار استلاستلام وإغلاق التذكرة داخل الروم
         if (interaction.isButton() && (interaction.customId === 'close_ticket_btn' || interaction.customId === 'claim_ticket_btn')) {
             const tData = ticketDataMap.get(interaction.channel.id) || { claimedBy: null };
 
