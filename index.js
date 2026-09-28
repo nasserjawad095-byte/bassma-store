@@ -28,8 +28,9 @@ const userActivityCount = new Map();
 const inviteTracker = new Map();
 const leftMembersCache = new Set();
 const snipeCache = new Map();
+
+// نظام إعداد التكتات المؤقت لكل سيرفر
 const ticketSetups = new Map();
-const guildInvitesCache = new Map();
 
 const exchangeRates = {
     'ريال': 3.75,
@@ -60,6 +61,8 @@ function parseDuration(timeStr) {
     if (unit === 'd') return value * 24 * 60 * 60 * 1000;
     return null;
 }
+
+const guildInvitesCache = new Map();
 
 async function cacheGuildInvites(guild) {
     try {
@@ -210,6 +213,7 @@ client.on('messageCreate', async message => {
         const args = message.content.slice(PREFIX.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
 
+        // ==================== أمر إعداد التكتات الاحترافي (Ticket Setup) مخفي ====================
         if (command === 'ticket-setup' || command === 'تكت-سيتوب') {
             if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
                 return message.reply('❌ عذراً، هذا الأمر يتطلب صلاحية **Administrator**.');
@@ -251,7 +255,7 @@ client.on('messageCreate', async message => {
             );
 
             await message.delete().catch(() => {});
-            return await message.channel.send({ embeds: [embed], components: [row1, row2] });
+            return await message.channel.send({ embeds: [embed], components: [row1, row2] }); // تم جعلها مخفية عن العام بإرسالها كرسالة خاصة أو حذف أمر الكاتب، أو يمكنك جعلها ephemeral عبر Slash Command إن أردت، لكن هنا أزلنا رسالة الأمر لتبقى سرية بالروم.
         }
 
         if (command === 'snipe') {
@@ -1054,11 +1058,12 @@ client.on('messageCreate', async message => {
     }
 });
 
-// ==================== التفاعل مع الأزرار والقوائم والـ Modals ====================
+// ==================== التفاعل مع لوحة إعداد التكتات والأزرار والتذاكر ====================
 client.on('interactionCreate', async interaction => {
     try {
         if (!interaction.guild) return;
 
+        // معالجة تفاعل إعدادات لوحة التحكم بالأزرار (مخفية للإداري)
         if (interaction.isButton() && interaction.customId.startsWith('ticket_')) {
             if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
                 return interaction.reply({ content: '❌ هذه الأزرار مخصصة للإدارة فقط.', ephemeral: true });
@@ -1157,6 +1162,7 @@ client.on('interactionCreate', async interaction => {
                     .setFooter({ text: interaction.guild.name, iconURL: interaction.guild.iconURL({ dynamic: true }) })
                     .setTimestamp();
 
+                // قائمة منسدلة لفتح التكتات حسب الطلب (طلب منتج، استفسار، شكوى) كما في الصورة
                 const panelMenu = new ActionRowBuilder().addComponents(
                     new StringSelectMenuBuilder()
                         .setCustomId('create_ticket_menu')
@@ -1173,6 +1179,7 @@ client.on('interactionCreate', async interaction => {
             }
         }
 
+        // معالجة النوافذ (Modals) لإعدادات التكت
         if (interaction.isModalSubmit()) {
             if (!ticketSetups.has(interaction.guild.id)) return;
             const data = ticketSetups.get(interaction.guild.id);
@@ -1212,6 +1219,7 @@ client.on('interactionCreate', async interaction => {
             }
         }
 
+        // معالجة اختيار قائمة فتح التكتات (Select Menu)
         if (interaction.isStringSelectMenu() && interaction.customId === 'create_ticket_menu') {
             const data = ticketSetups.get(interaction.guild.id) || { categoryId: null, supportRoleId: null };
             const selectedValue = interaction.values[0];
@@ -1267,6 +1275,7 @@ client.on('interactionCreate', async interaction => {
                 .setDescription(`مرحباً بك ${interaction.user}! يرجى كتابة تفاصيل طلبك أو مشكلتك هنا وسيتولى فريق الدعم الرد عليك في أقرب وقت.`)
                 .setTimestamp();
 
+            // أزرار قائمة خيارات التكت المطابقة للصورة تماماً
             const row1 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('come_ticket_btn').setLabel('Come (استدعاء)').setStyle(ButtonStyle.Secondary).setEmoji('📢'),
                 new ButtonBuilder().setCustomId('add_ticket_btn').setLabel('Add (إضافة عضو)').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
@@ -1288,6 +1297,7 @@ client.on('interactionCreate', async interaction => {
             return await interaction.editReply({ content: `✅ تم إنشاء تذكرتك بنجاح في الروم: ${ticketChannel}` });
         }
 
+        // معالجة أزرار خيارات التكت داخل الروم (Claim, Close, Come, Add, Rename, Rating, etc.)
         if (interaction.isButton()) {
             if (interaction.customId === 'claim_ticket_btn') {
                 return await interaction.reply({ content: `🙋‍♂️ تم استلام التذكرة بواسطة الإداري ${interaction.user}` });
@@ -1308,15 +1318,4 @@ client.on('interactionCreate', async interaction => {
                 return await interaction.reply({ content: `⚠️ يرجى استخدام صلاحيات الروم لإضافة أو إزالة الأعضاء من التذكرة.`, ephemeral: true });
             }
             if (interaction.customId === 'close_ticket_btn') {
-                await interaction.reply({ content: `🔒 جاري إغلاق وحذف التذكرة خلال 5 ثوانٍ...` });
-                setTimeout(async () => {
-                    await interaction.channel.delete().catch(() => {});
-                }, 5000);
-            }
-        }
-    } catch (err) {
-        console.error('An unexpected error occurred in interactionCreate:', err);
-    }
-});
-
-client.login('YOUR_BOT_TOKEN');
+                await interaction.reply({ conten
