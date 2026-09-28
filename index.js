@@ -213,18 +213,21 @@ client.on('messageCreate', async message => {
         const args = message.content.slice(PREFIX.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
 
-        // ==================== أمر إعداد التكتات الاحترافي (Ticket Setup) مخفي ====================
+        // ==================== أمر إعداد التكتات الاحترافي (Ticket Setup) ====================
         if (command === 'ticket-setup' || command === 'تكت-سيتوب') {
             if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
                 return message.reply('❌ عذراً، هذا الأمر يتطلب صلاحية **Administrator**.');
             }
 
+            // تهيئة بيانات افتراضية لهذا السيرفر إن لم تكن موجودة
             if (!ticketSetups.has(message.guild.id)) {
                 ticketSetups.set(message.guild.id, {
-                    title: '🎫 نظام تذاكر الدعم الفني وطلب المنتجات',
-                    description: 'يرجى اختيار القسم المناسب من القائمة أدناه لفتح تذكرة جديدة وسيقوم فريق الدعم بمساعدتك في أقرب وقت.',
+                    title: '🎫 نظام تذاكر الدعم الفني',
+                    description: 'لفتح تذكرة جديدة، يرجى الضغط على الزر أدناه وسيقوم فريق الدعم بمساعدتك في أقرب وقت.',
+                    buttonText: 'فتح تذكرة 🎫',
                     supportRoleId: null,
                     categoryId: null,
+                    logChannelId: null,
                     targetChannelId: message.channel.id
                 });
             }
@@ -234,7 +237,7 @@ client.on('messageCreate', async message => {
             const embed = new EmbedBuilder()
                 .setColor('#5865F2')
                 .setTitle('⚙️ لوحة إعداد وتكوين التكتات')
-                .setDescription('قم بتعديل إعدادات التكتات الخاصة بسيرفرك باستخدام الأزرار أدناه (هذه اللوحة مرئية لك وحدك):')
+                .setDescription('قم بتعديل إعدادات التكتات الخاصة بسيرفرك باستخدام الأزرار أدناه بكل سهولة ونظام مرتب:')
                 .addFields(
                     { name: '📌 عنوان الإمبيد الحالي', value: `\`${data.title}\``, inline: false },
                     { name: '🛡️ رتبة الدعم', value: data.supportRoleId ? `<@&${data.supportRoleId}>` : '`غير محددة`', inline: true },
@@ -254,8 +257,8 @@ client.on('messageCreate', async message => {
                 new ButtonBuilder().setCustomId('ticket_send_panel').setLabel('إرسال لوحة التكتات الآن').setStyle(ButtonStyle.Success).setEmoji('🚀')
             );
 
-            await message.delete().catch(() => {});
-            return await message.channel.send({ embeds: [embed], components: [row1, row2] }); // تم جعلها مخفية عن العام بإرسالها كرسالة خاصة أو حذف أمر الكاتب، أو يمكنك جعلها ephemeral عبر Slash Command إن أردت، لكن هنا أزلنا رسالة الأمر لتبقى سرية بالروم.
+            const setupMsg = await message.reply({ embeds: [embed], components: [row1, row2] });
+            return;
         }
 
         if (command === 'snipe') {
@@ -1063,7 +1066,7 @@ client.on('interactionCreate', async interaction => {
     try {
         if (!interaction.guild) return;
 
-        // معالجة تفاعل إعدادات لوحة التحكم بالأزرار (مخفية للإداري)
+        // معالجة تفاعل إعدادات لوحة التحكم بالأزرار
         if (interaction.isButton() && interaction.customId.startsWith('ticket_')) {
             if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
                 return interaction.reply({ content: '❌ هذه الأزرار مخصصة للإدارة فقط.', ephemeral: true });
@@ -1071,10 +1074,12 @@ client.on('interactionCreate', async interaction => {
 
             if (!ticketSetups.has(interaction.guild.id)) {
                 ticketSetups.set(interaction.guild.id, {
-                    title: '🎫 نظام تذاكر الدعم الفني وطلب المنتجات',
-                    description: 'يرجى اختيار القسم المناسب من القائمة أدناه لفتح تذكرة جديدة وسيقوم فريق الدعم بمساعدتك في أقرب وقت.',
+                    title: '🎫 نظام تذاكر الدعم الفني',
+                    description: 'لفتح تذكرة جديدة، يرجى الضغط على الزر أدناه وسيقوم فريق الدعم بمساعدتك في أقرب وقت.',
+                    buttonText: 'فتح تذكرة 🎫',
                     supportRoleId: null,
                     categoryId: null,
+                    logChannelId: null,
                     targetChannelId: interaction.channel.id
                 });
             }
@@ -1162,20 +1167,16 @@ client.on('interactionCreate', async interaction => {
                     .setFooter({ text: interaction.guild.name, iconURL: interaction.guild.iconURL({ dynamic: true }) })
                     .setTimestamp();
 
-                // قائمة منسدلة لفتح التكتات حسب الطلب (طلب منتج، استفسار، شكوى) كما في الصورة
-                const panelMenu = new ActionRowBuilder().addComponents(
-                    new StringSelectMenuBuilder()
-                        .setCustomId('create_ticket_menu')
-                        .setPlaceholder('📂 اختر نوع التذكرة المناسبة لطلبك...')
-                        .addOptions([
-                            { label: 'طلب منتج 🛒', description: 'انقر هنا لفتح تذكرة خاصة بطلب المنتجات والخدمات', value: 'ticket_product' },
-                            { label: 'استفسار عام ❓', description: 'انقر هنا لطرح استفسارك العام ومساعدتك', value: 'ticket_support' },
-                            { label: 'شكوى أو اقتراح 💡', description: 'لتقديم شكوى أو اقتراح لتحسين السيرفر', value: 'ticket_complaint' }
-                        ])
+                const panelRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('create_ticket_btn')
+                        .setLabel(data.buttonText)
+                        .setStyle(ButtonStyle.Success)
+                        .setEmoji('🎫')
                 );
 
-                await targetChan.send({ embeds: [panelEmbed], components: [panelMenu] });
-                return await interaction.reply({ content: `✅ تم إرسال لوحة التكتات العامة بنجاح إلى الروم: <#${targetChan.id}>`, ephemeral: true });
+                await targetChan.send({ embeds: [panelEmbed], components: [panelRow] });
+                return await interaction.reply({ content: `✅ تم إرسال لوحة التكتات بنجاح إلى الروم: <#${targetChan.id}>`, ephemeral: true });
             }
         }
 
@@ -1219,27 +1220,14 @@ client.on('interactionCreate', async interaction => {
             }
         }
 
-        // معالجة اختيار قائمة فتح التكتات (Select Menu)
-        if (interaction.isStringSelectMenu() && interaction.customId === 'create_ticket_menu') {
+        // معالجة زر إنشاء التذكرة وفتح الروم الخاص بها للأعضاء
+        if (interaction.isButton() && interaction.customId === 'create_ticket_btn') {
             const data = ticketSetups.get(interaction.guild.id) || { categoryId: null, supportRoleId: null };
-            const selectedValue = interaction.values[0];
-
-            let ticketTypePrefix = 'ticket';
-            let ticketTypeName = 'تذكرة دعم';
-            if (selectedValue === 'ticket_product') {
-                ticketTypePrefix = 'product';
-                ticketTypeName = 'طلب منتج 🛒';
-            } else if (selectedValue === 'ticket_support') {
-                ticketTypePrefix = 'support';
-                ticketTypeName = 'استفسار عام ❓';
-            } else if (selectedValue === 'ticket_complaint') {
-                ticketTypePrefix = 'complaint';
-                ticketTypeName = 'شكوى واقتراح 💡';
-            }
-
-            const existingChannel = interaction.guild.channels.cache.find(c => c.name === `${ticketTypePrefix}-${interaction.user.username.toLowerCase()}`);
+            
+            // منع فتح أكثر من تذكرة لنفس المستخدم بنفس الوقت
+            const existingChannel = interaction.guild.channels.cache.find(c => c.name === `ticket-${interaction.user.username.toLowerCase()}`);
             if (existingChannel) {
-                return await interaction.reply({ content: `⚠️ لديك تذكرة مفتوحة من هذا النوع بالفعل هنا: ${existingChannel}`, ephemeral: true });
+                return await interaction.reply({ content: `⚠️ لديك تذكرة مفتوحة بالفعل هنا: ${existingChannel}`, ephemeral: true });
             }
 
             await interaction.deferReply({ ephemeral: true });
@@ -1263,7 +1251,7 @@ client.on('interactionCreate', async interaction => {
             }
 
             const ticketChannel = await interaction.guild.channels.create({
-                name: `${ticketTypePrefix}-${interaction.user.username}`,
+                name: `ticket-${interaction.user.username}`,
                 type: ChannelType.GuildText,
                 parent: data.categoryId || null,
                 permissionOverwrites: permissionOverwrites
@@ -1271,51 +1259,35 @@ client.on('interactionCreate', async interaction => {
 
             const welcomeEmbed = new EmbedBuilder()
                 .setColor('#2ECC71')
-                .setTitle(`🎫 تذكرة: ${ticketTypeName}`)
-                .setDescription(`مرحباً بك ${interaction.user}! يرجى كتابة تفاصيل طلبك أو مشكلتك هنا وسيتولى فريق الدعم الرد عليك في أقرب وقت.`)
+                .setTitle(`🎫 تذكرة العضو: ${interaction.user.username}`)
+                .setDescription('مرحباً بك! يرجى كتابة مشكلتك أو استفسارك بالتفصيل وسيتولى فريق الدعم الرد عليك قريباً.')
                 .setTimestamp();
 
-            // أزرار قائمة خيارات التكت المطابقة للصورة تماماً
-            const row1 = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('come_ticket_btn').setLabel('Come (استدعاء)').setStyle(ButtonStyle.Secondary).setEmoji('📢'),
-                new ButtonBuilder().setCustomId('add_ticket_btn').setLabel('Add (إضافة عضو)').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
-                new ButtonBuilder().setCustomId('remove_ticket_btn').setLabel('Remove (إزالة عضو)').setStyle(ButtonStyle.Secondary).setEmoji('➖')
+            const closeRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('close_ticket_btn').setLabel('إغلاق التذكرة 🔒').setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId('claim_ticket_btn').setLabel('استلام التذكرة 🙋‍♂️').setStyle(ButtonStyle.Primary)
             );
 
-            const row2 = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('rename_ticket_btn').setLabel('Rename (تغيير الاسم)').setStyle(ButtonStyle.Secondary).setEmoji('✏️'),
-                new ButtonBuilder().setCustomId('rating_ticket_btn').setLabel('Rating (تقييم)').setStyle(ButtonStyle.Secondary).setEmoji('⭐'),
-                new ButtonBuilder().setCustomId('close_ticket_btn').setLabel('Close (غلق التذكرة)').setStyle(ButtonStyle.Danger).setEmoji('🔒')
-            );
-
-            const row3 = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('claim_ticket_btn').setLabel('Claim (استلام التكت)').setStyle(ButtonStyle.Primary).setEmoji('🙋‍♂️'),
-                new ButtonBuilder().setCustomId('unclaim_ticket_btn').setLabel('Unclaim (إلغاء الاستلام)').setStyle(ButtonStyle.Secondary).setEmoji('❌')
-            );
-
-            await ticketChannel.send({ content: `${interaction.user} ${data.supportRoleId ? `<@&${data.supportRoleId}>` : ''}`, embeds: [welcomeEmbed], components: [row1, row2, row3] });
+            await ticketChannel.send({ content: `${interaction.user} ${data.supportRoleId ? `<@&${data.supportRoleId}>` : ''}`, embeds: [welcomeEmbed], components: [closeRow] });
             return await interaction.editReply({ content: `✅ تم إنشاء تذكرتك بنجاح في الروم: ${ticketChannel}` });
         }
 
-        // معالجة أزرار خيارات التكت داخل الروم (Claim, Close, Come, Add, Rename, Rating, etc.)
-        if (interaction.isButton()) {
+        // معالجة زر إغلاق التذكرة أو استلامها داخل روم التذكرة
+        if (interaction.isButton() && (interaction.customId === 'close_ticket_btn' || interaction.customId === 'claim_ticket_btn')) {
             if (interaction.customId === 'claim_ticket_btn') {
                 return await interaction.reply({ content: `🙋‍♂️ تم استلام التذكرة بواسطة الإداري ${interaction.user}` });
             }
-            if (interaction.customId === 'unclaim_ticket_btn') {
-                return await interaction.reply({ content: `❌ تم إلغاء استلام التذكرة بواسطة ${interaction.user}` });
-            }
-            if (interaction.customId === 'come_ticket_btn') {
-                return await interaction.reply({ content: `📢 تنبيه: تم استدعاء صاحب التذكرة بواسطة ${interaction.user}` });
-            }
-            if (interaction.customId === 'rating_ticket_btn') {
-                return await interaction.reply({ content: `⭐ شكراً لتواصلك معنا! يرجى تقييم خدمة الدعم من 1 إلى 5 نجوم.`, ephemeral: true });
-            }
-            if (interaction.customId === 'rename_ticket_btn') {
-                return await interaction.reply({ content: `⚠️ لتغيير اسم الروم، استخدم أمر التعديل أو قم بإعادة تسمية الروم من إعدادات القناة.`, ephemeral: true });
-            }
-            if (interaction.customId === 'add_ticket_btn' || interaction.customId === 'remove_ticket_btn') {
-                return await interaction.reply({ content: `⚠️ يرجى استخدام صلاحيات الروم لإضافة أو إزالة الأعضاء من التذكرة.`, ephemeral: true });
-            }
+
             if (interaction.customId === 'close_ticket_btn') {
-                await interaction.reply({ conten
+                await interaction.reply({ content: '🔒 جاري إغلاق وحذف التذكرة خلال 5 ثوانٍ...' });
+                setTimeout(() => {
+                    interaction.channel.delete().catch(() => {});
+                }, 5000);
+            }
+        }
+    } catch (err) {
+        console.error('Error handling interaction:', err);
+    }
+});
+
+client.login(process.env.DISCORD_TOKEN);
