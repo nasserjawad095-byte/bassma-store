@@ -317,7 +317,7 @@ client.on('messageCreate', async message => {
                     .setTimestamp();
 
                 await targetUser.send({ embeds: [embedDM] });
-                return message.reply({ embeds: [new EmbedBuilder().setColor('#00FF00').setDescription(`✅ تم إرسال الاستدعاء إلى ${targetUser} بالخاص بنجاح.`)] });
+                return message.reply({ embeds: [new EmbedBuilder().setColor('#00FF00'].setDescription(`✅ تم إرسال الاستدعاء إلى ${targetUser} بالخاص بنجاح.`)] });
             } catch (e) {
                 return message.reply(`⚠️ تعذر إرسال رسالة خاصة إلى ${targetUser} (الخاص مغلق).`);
             }
@@ -894,7 +894,7 @@ client.on('messageCreate', async message => {
             return message.reply(`⏱️ تم ضبط الشات البطيء على **${time}** ثانية.`);
         }
 
-        if (command === 'help') {
+        if (command === 'h') {
             const totalCommandsCount = 46;
 
             const getEmbed = (page) => {
