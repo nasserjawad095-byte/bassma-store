@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -28,6 +28,9 @@ const userActivityCount = new Map();
 const inviteTracker = new Map();
 const leftMembersCache = new Set();
 const snipeCache = new Map();
+
+// نظام إعداد التكتات المؤقت لكل سيرفر
+const ticketSetups = new Map();
 
 const exchangeRates = {
     'ريال': 3.75,
@@ -209,6 +212,54 @@ client.on('messageCreate', async message => {
 
         const args = message.content.slice(PREFIX.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
+
+        // ==================== أمر إعداد التكتات الاحترافي (Ticket Setup) ====================
+        if (command === 'ticket-setup' || command === 'تكت-سيتوب') {
+            if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                return message.reply('❌ عذراً، هذا الأمر يتطلب صلاحية **Administrator**.');
+            }
+
+            // تهيئة بيانات افتراضية لهذا السيرفر إن لم تكن موجودة
+            if (!ticketSetups.has(message.guild.id)) {
+                ticketSetups.set(message.guild.id, {
+                    title: '🎫 نظام تذاكر الدعم الفني',
+                    description: 'لفتح تذكرة جديدة، يرجى الضغط على الزر أدناه وسيقوم فريق الدعم بمساعدتك في أقرب وقت.',
+                    buttonText: 'فتح تذكرة 🎫',
+                    supportRoleId: null,
+                    categoryId: null,
+                    logChannelId: null,
+                    targetChannelId: message.channel.id
+                });
+            }
+
+            const data = ticketSetups.get(message.guild.id);
+
+            const embed = new EmbedBuilder()
+                .setColor('#5865F2')
+                .setTitle('⚙️ لوحة إعداد وتكوين التكتات')
+                .setDescription('قم بتعديل إعدادات التكتات الخاصة بسيرفرك باستخدام الأزرار أدناه بكل سهولة ونظام مرتب:')
+                .addFields(
+                    { name: '📌 عنوان الإمبيد الحالي', value: `\`${data.title}\``, inline: false },
+                    { name: '🛡️ رتبة الدعم', value: data.supportRoleId ? `<@&${data.supportRoleId}>` : '`غير محددة`', inline: true },
+                    { name: '📂 قسم التكتات (Category)', value: data.categoryId ? `<#${data.categoryId}>` : '`غير محدد (الرئيسي)`', inline: true },
+                    { name: '📍 روم إرسال الإمبيد', value: `<#${data.targetChannelId}>`, inline: true }
+                )
+                .setTimestamp();
+
+            const row1 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('ticket_set_title').setLabel('تعديل محتوى الإمبيد').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+                new ButtonBuilder().setCustomId('ticket_set_role').setLabel('تحديد رتبة الدعم').setStyle(ButtonStyle.Secondary).setEmoji('🛡️'),
+                new ButtonBuilder().setCustomId('ticket_set_cat').setLabel('تحديد الـ Category').setStyle(ButtonStyle.Secondary).setEmoji('📂')
+            );
+
+            const row2 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('ticket_set_channel').setLabel('تحديد روم الإرسال').setStyle(ButtonStyle.Secondary).setEmoji('📍'),
+                new ButtonBuilder().setCustomId('ticket_send_panel').setLabel('إرسال لوحة التكتات الآن').setStyle(ButtonStyle.Success).setEmoji('🚀')
+            );
+
+            const setupMsg = await message.reply({ embeds: [embed], components: [row1, row2] });
+            return;
+        }
 
         if (command === 'snipe') {
             const channelSnipes = snipeCache.get(message.channel.id);
@@ -892,9 +943,8 @@ client.on('messageCreate', async message => {
             return message.reply(`⏱️ تم ضبط الشات البطيء على **${time}** ثانية.`);
         }
 
-        // تم تغيير الأمر من help إلى h ليصبح (+h)
         if (command === 'h') {
-            const totalCommandsCount = 46;
+            const totalCommandsCount = 47;
 
             const getEmbed = (page) => {
                 if (page === '1') {
@@ -931,8 +981,9 @@ client.on('messageCreate', async message => {
                 } else if (page === '3') {
                     return new EmbedBuilder()
                         .setColor('#2ECC71')
-                        .setTitle('🛡️ أوامر ادارية')
+                        .setTitle('🛡️ أوامر ادارية وتكتات')
                         .addFields(
+                            { name: '`+ticket-setup`', value: 'إعداد لوحة تذاكر الدعم الفني تفاعلياً.', inline: false },
                             { name: '`+snipe`', value: 'لعرض آخر رسالة تم حذفها في الروم بأمبيد.', inline: false },
                             { name: '`+snipeall`', value: 'لعرض سجل آخر الرسائل المحذوفة في الروم.', inline: false },
                             { name: '`+i [@العضو]`', value: 'لفحص تفاصيل الانفايت وحالة احتسابه.', inline: false },
@@ -946,14 +997,10 @@ client.on('messageCreate', async message => {
                             { name: '`+تايم [@العضو] [الدقائق]`', value: 'لإعطاء العضو ميوت مؤقت (تايم آوت).', inline: false },
                             { name: '`+انتايم [@العضو]`', value: 'لإزالة الميوت المؤقت عن العضو.', inline: false },
                             { name: '`+مسح [العدد]`', value: 'لمسح رسائل الشات بسرعة (بين 1 و 100).', inline: false },
-                            { name: '`+قفل`', value: 'لقفل الروم الحالي ومنع الأعضاء من الكتابة.', inline: false },
-                            { name: '`+فتح`', value: 'لفتح الروم الحالي والسماح بالكتابة.', inline: false },
-                            { name: '`+اخفاء`', value: 'لإخفاء الروم عن الأعضاء.', inline: false },
-                            { name: '`+اظهار`', value: 'لإظهار الروم وجعله مرئياً.', inline: false },
-                            { name: '`+رول [@العضو] [@الرول/الايدي]`', value: 'لإعطاء أو إزالة رتبة عن عضو.', inline: false },
-                            { name: '`+roleicon [@الرول] [الإيموجي]`', value: 'تعيين أي إيموجي كأيقونة للرتبة.', inline: false },
-                            { name: '`+رول-جماعي [@الرول]`', value: 'لإعطاء رتبة معينة لجميع أعضاء السيرفر.', inline: false },
-                            { name: '`+gstart [الوقت] [الجائزة]`', value: 'لبدء مسابقة جديدة تعتمد على التفاعل.', inline: false },
+                            { name: '`+قفل` / `+فتح`', value: 'لقفل أو فتح الروم الحالي.', inline: false },
+                            { name: '`+اخفاء` / `+اظهار`', value: 'لإخفاء أو إظهار الروم.', inline: false },
+                            { name: '`+رول` / `+roleicon`', value: 'إدارة رتب الأعضاء وأيقوناتها.', inline: false },
+                            { name: '`+gstart [الوقت] [الجائزة]`', value: 'لبدء مسابقة جديدة.', inline: false },
                             { name: '`+صرف [المبلغ] [العملة]`', value: 'لتحويل العملات بدقة.', inline: false }
                         );
                 } else if (page === '4') {
@@ -1011,6 +1058,235 @@ client.on('messageCreate', async message => {
         }
     } catch (err) {
         console.error('An unexpected error occurred in messageCreate:', err);
+    }
+});
+
+// ==================== التفاعل مع لوحة إعداد التكتات والأزرار والتذاكر ====================
+client.on('interactionCreate', async interaction => {
+    try {
+        if (!interaction.guild) return;
+
+        // معالجة تفاعل إعدادات لوحة التحكم بالأزرار
+        if (interaction.isButton() && interaction.customId.startsWith('ticket_')) {
+            if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                return interaction.reply({ content: '❌ هذه الأزرار مخصصة للإدارة فقط.', ephemeral: true });
+            }
+
+            if (!ticketSetups.has(interaction.guild.id)) {
+                ticketSetups.set(interaction.guild.id, {
+                    title: '🎫 نظام تذاكر الدعم الفني',
+                    description: 'لفتح تذكرة جديدة، يرجى الضغط على الزر أدناه وسيقوم فريق الدعم بمساعدتك في أقرب وقت.',
+                    buttonText: 'فتح تذكرة 🎫',
+                    supportRoleId: null,
+                    categoryId: null,
+                    logChannelId: null,
+                    targetChannelId: interaction.channel.id
+                });
+            }
+
+            const data = ticketSetups.get(interaction.guild.id);
+
+            if (interaction.customId === 'ticket_set_title') {
+                const modal = new ModalBuilder()
+                    .setCustomId('modal_ticket_title')
+                    .setTitle('تعديل محتوى إمبيد التكتات');
+
+                const titleInput = new TextInputBuilder()
+                    .setCustomId('ticket_title_input')
+                    .setLabel('عنوان الإمبيد')
+                    .setStyle(TextInputStyle.Short)
+                    .setValue(data.title)
+                    .setRequired(true);
+
+                const descInput = new TextInputBuilder()
+                    .setCustomId('ticket_desc_input')
+                    .setLabel('وصف الإمبيد')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setValue(data.description)
+                    .setRequired(true);
+
+                modal.addComponents(new ActionRowBuilder().addComponents(titleInput), new ActionRowBuilder().addComponents(descInput));
+                return await interaction.showModal(modal);
+            }
+
+            if (interaction.customId === 'ticket_set_role') {
+                const modal = new ModalBuilder()
+                    .setCustomId('modal_ticket_role')
+                    .setTitle('تحديد رتبة الدعم الفني');
+
+                const roleInput = new TextInputBuilder()
+                    .setCustomId('ticket_role_id_input')
+                    .setLabel('أدخل آي دي رتبة الدعم (Role ID)')
+                    .setStyle(TextInputStyle.Short)
+                    .setValue(data.supportRoleId || '')
+                    .setRequired(true);
+
+                modal.addComponents(new ActionRowBuilder().addComponents(roleInput));
+                return await interaction.showModal(modal);
+            }
+
+            if (interaction.customId === 'ticket_set_cat') {
+                const modal = new ModalBuilder()
+                    .setCustomId('modal_ticket_cat')
+                    .setTitle('تحديد قسم التكتات (Category ID)');
+
+                const catInput = new TextInputBuilder()
+                    .setCustomId('ticket_cat_id_input')
+                    .setLabel('أدخل آي دي الكاتيغوري (Category ID)')
+                    .setStyle(TextInputStyle.Short)
+                    .setValue(data.categoryId || '')
+                    .setRequired(true);
+
+                modal.addComponents(new ActionRowBuilder().addComponents(catInput));
+                return await interaction.showModal(modal);
+            }
+
+            if (interaction.customId === 'ticket_set_channel') {
+                const modal = new ModalBuilder()
+                    .setCustomId('modal_ticket_channel')
+                    .setTitle('تحديد روم إرسال الإمبيد');
+
+                const chanInput = new TextInputBuilder()
+                    .setCustomId('ticket_chan_id_input')
+                    .setLabel('أدخل آي دي روم الإرسال (Channel ID)')
+                    .setStyle(TextInputStyle.Short)
+                    .setValue(data.targetChannelId || '')
+                    .setRequired(true);
+
+                modal.addComponents(new ActionRowBuilder().addComponents(chanInput));
+                return await interaction.showModal(modal);
+            }
+
+            if (interaction.customId === 'ticket_send_panel') {
+                const targetChan = interaction.guild.channels.cache.get(data.targetChannelId) || interaction.channel;
+
+                const panelEmbed = new EmbedBuilder()
+                    .setColor('#5865F2')
+                    .setTitle(data.title)
+                    .setDescription(data.description)
+                    .setFooter({ text: interaction.guild.name, iconURL: interaction.guild.iconURL({ dynamic: true }) })
+                    .setTimestamp();
+
+                const panelRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('create_ticket_btn')
+                        .setLabel(data.buttonText)
+                        .setStyle(ButtonStyle.Success)
+                        .setEmoji('🎫')
+                );
+
+                await targetChan.send({ embeds: [panelEmbed], components: [panelRow] });
+                return await interaction.reply({ content: `✅ تم إرسال لوحة التكتات بنجاح إلى الروم: <#${targetChan.id}>`, ephemeral: true });
+            }
+        }
+
+        // معالجة النوافذ (Modals) لإعدادات التكت
+        if (interaction.isModalSubmit()) {
+            if (!ticketSetups.has(interaction.guild.id)) return;
+            const data = ticketSetups.get(interaction.guild.id);
+
+            if (interaction.customId === 'modal_ticket_title') {
+                data.title = interaction.fields.getTextInputValue('ticket_title_input');
+                data.description = interaction.fields.getTextInputValue('ticket_desc_input');
+                return await interaction.reply({ content: '✅ تم تحديث عنوان ووصف الإمبيد بنجاح.', ephemeral: true });
+            }
+
+            if (interaction.customId === 'modal_ticket_role') {
+                const rId = interaction.fields.getTextInputValue('ticket_role_id_input');
+                const role = interaction.guild.roles.cache.get(rId);
+                if (!role) return await interaction.reply({ content: '❌ الرتبة غير موجودة، تأكد من الآي دي.', ephemeral: true });
+                data.supportRoleId = role.id;
+                return await interaction.reply({ content: `✅ تم ربط رتبة الدعم الفني بـ: **${role.name}**`, ephemeral: true });
+            }
+
+            if (interaction.customId === 'modal_ticket_cat') {
+                const cId = interaction.fields.getTextInputValue('ticket_cat_id_input');
+                const cat = interaction.guild.channels.cache.get(cId);
+                if (!cat || cat.type !== ChannelType.GuildCategory) {
+                    return await interaction.reply({ content: '❌ الكاتيغوري غير موجود أو ليس قسماً صحيحاً.', ephemeral: true });
+                }
+                data.categoryId = cat.id;
+                return await interaction.reply({ content: `✅ تم تحديد القسم (Category) بـ: **${cat.name}**`, ephemeral: true });
+            }
+
+            if (interaction.customId === 'modal_ticket_channel') {
+                const chId = interaction.fields.getTextInputValue('ticket_chan_id_input');
+                const ch = interaction.guild.channels.cache.get(chId);
+                if (!ch || !ch.isTextBased()) {
+                    return await interaction.reply({ content: '❌ الروم غير موجود أو ليس روم كتابي.', ephemeral: true });
+                }
+                data.targetChannelId = ch.id;
+                return await interaction.reply({ content: `✅ تم تحديد روم إرسال الإمبيد بـ: **${ch.name}**`, ephemeral: true });
+            }
+        }
+
+        // معالجة زر إنشاء التذكرة وفتح الروم الخاص بها للأعضاء
+        if (interaction.isButton() && interaction.customId === 'create_ticket_btn') {
+            const data = ticketSetups.get(interaction.guild.id) || { categoryId: null, supportRoleId: null };
+            
+            // منع فتح أكثر من تذكرة لنفس المستخدم بنفس الوقت
+            const existingChannel = interaction.guild.channels.cache.find(c => c.name === `ticket-${interaction.user.username.toLowerCase()}`);
+            if (existingChannel) {
+                return await interaction.reply({ content: `⚠️ لديك تذكرة مفتوحة بالفعل هنا: ${existingChannel}`, ephemeral: true });
+            }
+
+            await interaction.deferReply({ ephemeral: true });
+
+            const permissionOverwrites = [
+                {
+                    id: interaction.guild.roles.everyone.id,
+                    deny: [PermissionFlagsBits.ViewChannel]
+                },
+                {
+                    id: interaction.user.id,
+                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory]
+                }
+            ];
+
+            if (data.supportRoleId) {
+                permissionOverwrites.push({
+                    id: data.supportRoleId,
+                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels]
+                });
+            }
+
+            const ticketChannel = await interaction.guild.channels.create({
+                name: `ticket-${interaction.user.username}`,
+                type: ChannelType.GuildText,
+                parent: data.categoryId || null,
+                permissionOverwrites: permissionOverwrites
+            });
+
+            const welcomeEmbed = new EmbedBuilder()
+                .setColor('#2ECC71')
+                .setTitle(`🎫 تذكرة العضو: ${interaction.user.username}`)
+                .setDescription('مرحباً بك! يرجى كتابة مشكلتك أو استفسارك بالتفصيل وسيتولى فريق الدعم الرد عليك قريباً.')
+                .setTimestamp();
+
+            const closeRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('close_ticket_btn').setLabel('إغلاق التذكرة 🔒').setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId('claim_ticket_btn').setLabel('استلام التذكرة 🙋‍♂️').setStyle(ButtonStyle.Primary)
+            );
+
+            await ticketChannel.send({ content: `${interaction.user} ${data.supportRoleId ? `<@&${data.supportRoleId}>` : ''}`, embeds: [welcomeEmbed], components: [closeRow] });
+            return await interaction.editReply({ content: `✅ تم إنشاء تذكرتك بنجاح في الروم: ${ticketChannel}` });
+        }
+
+        // معالجة زر إغلاق التذكرة أو استلامها داخل روم التذكرة
+        if (interaction.isButton() && (interaction.customId === 'close_ticket_btn' || interaction.customId === 'claim_ticket_btn')) {
+            if (interaction.customId === 'claim_ticket_btn') {
+                return await interaction.reply({ content: `🙋‍♂️ تم استلام التذكرة بواسطة الإداري ${interaction.user}` });
+            }
+
+            if (interaction.customId === 'close_ticket_btn') {
+                await interaction.reply({ content: '🔒 جاري إغلاق وحذف التذكرة خلال 5 ثوانٍ...' });
+                setTimeout(() => {
+                    interaction.channel.delete().catch(() => {});
+                }, 5000);
+            }
+        }
+    } catch (err) {
+        console.error('Error handling interaction:', err);
     }
 });
 
