@@ -169,6 +169,73 @@ client.on('guildMemberRemove', member => {
     leftMembersCache.add(member.id);
 });
 
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isStringSelectMenu()) return;
+
+    if (interaction.customId === 'help_menu') {
+        const selected = interaction.values[0];
+
+        if (selected === 'general') {
+            const embed = new EmbedBuilder()
+                .setColor('#3498DB')
+                .setTitle('📌 الأوامر العامة والتفاعلية')
+                .addFields(
+                    { name: '`#i [@العضو]`', value: 'عرض تفاصيل انضمام العضو وهل الدعوة صالحة أم لا.' },
+                    { name: '`#status`', value: 'عرض سرعة استجابة البوت (البينغ) ومدة التشغيل.' },
+                    { name: '`#activity [@العضو]`', value: 'عرض إجمالي عدد تفاعلاتك أو تفاعلات عضو معين.' },
+                    { name: '`#topactive`', value: 'عرض قائمة بأكثر 10 أعضاء تفاعلاً في السيرفر.' },
+                    { name: '`#rep [@العضو]`', value: 'إعطاء نقطة سمعة لعضو (مرة كل 24 ساعة).' },
+                    { name: '`#repboard`', value: 'عرض لوحة الصدارة لأعلى الأعضاء سمعة.' },
+                    { name: '`#afk [السبب]`', value: 'تفعيل وضع الغياب للإشعار عند المنشن.' },
+                    { name: '`#luck [@العضو]`', value: 'اختبار نسبة الحظ اليومية.' },
+                    { name: '`#fortune`', value: 'كرة التوقعات المستقبلية العشوائية.' },
+                    { name: '`#challenge [@العضو]`', value: 'تحدي عضو في لعبة عشوائية.' },
+                    { name: '`#firstmsg [@العضو]`', value: 'البحث عن أول رسالة للعضو في الروم.' },
+                    { name: '`#greet [@العضو]`', value: 'إرسال رسالة ترحيب مؤقتة للعضو.' },
+                    { name: '`#صرف [المبلغ] [العملة]`', value: 'تحويل العملات إلى الدولار الأمريكية.' },
+                    { name: '`#توب`', value: 'عرض قائمة أكثر 10 أعضاء إرسالاً للرسائل اليوم.' },
+                    { name: '`#سيرفر`', value: 'عرض معلومات مفصلة عن السيرفر.' },
+                    { name: '`#بروفايل [@العضو]`', value: 'عرض معلومات بروفايل العضو.' },
+                    { name: '`#صورة [@العضو]`', value: 'عرض صورة البروفايل بحجم كبير.' },
+                    { name: '`#رتب`', value: 'عرض قائمة بكافة رتب السيرفر.' },
+                    { name: '`#servericon` / `#serverbanner`', value: 'عرض صورة أو بانر السيرفر.' }
+                );
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        if (selected === 'admin') {
+            const embed = new EmbedBuilder()
+                .setColor('#E74C3C')
+                .setTitle('🛡️ الأوامر الإدارية')
+                .addFields(
+                    { name: '`#استدعاء [@العضو] [السبب]`', value: 'إرسال تنبيه استدعاء رسمي للعضو بالخاص.' },
+                    { name: '`#warn [@العضو] [السبب]`', value: 'توجيه تحذير رسمي للعضو بالخاص.' },
+                    { name: '`#nick [@العضو] [الاسم الجديد]`', value: 'تغيير أو إعادة ضبط نك نيم العضو.' },
+                    { name: '`#تايم [@العضو] [الدقائق]`', value: 'إعطاء تايم أوت (ميوت) للعضو.' },
+                    { name: '`#انتايم [@العضو]`', value: 'إلغاء التايم أوت عن العضو.' },
+                    { name: '`#فكبان [ID]`', value: 'إلغاء الحظر عن عضو بواسطة الآي دي.' },
+                    { name: '`#gstart [الوقت] [الجائزة]`', value: 'إنشاء مسابقة تلقائية (Giveaway).' },
+                    { name: '`#تشغيل-السستم` / `#ايقاف-السستم`', value: 'التحكم بتشغيل أو إيقاف البوت (لصاحب السيرفر).' }
+                );
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        if (selected === 'channels') {
+            const embed = new EmbedBuilder()
+                .setColor('#2ECC71')
+                .setTitle('📺 أوامر التحكم بالرومات والرسائل')
+                .addFields(
+                    { name: '`# قفل` / `# فتح`', value: 'قفل أو فتح الكتابة في الروم الحالي.' },
+                    { name: '`# اخفاء` / `# اظهار`', value: 'إخفاء أو إظهار الروم الحالي للجميع.' },
+                    { name: '`#slowmode [الثواني]`', value: 'ضبط أو إلغاء الوضع البطيء لإرسال الرسائل.' },
+                    { name: '`#snipe`', value: 'عرض آخر رسالة تم حذفها في الروم.' },
+                    { name: '`#snipeall`', value: 'عرض سجل آخر 10 رسائل محذوفة في الروم.' }
+                );
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+    }
+});
+
 client.on('messageCreate', async message => {
     try {
         if (!message.guild || message.author.bot) return;
@@ -209,6 +276,26 @@ client.on('messageCreate', async message => {
 
         const args = message.content.slice(PREFIX.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
+
+        if (command === 'h' || command === 'help' || command === 'هيلب') {
+            const helpEmbed = new EmbedBuilder()
+                .setColor('#5865F2')
+                .setTitle('📜 قائمة أوامر البوت')
+                .setDescription('قم باختيار القسم المطلوب من القائمة بالأسفل لعرض الأوامر الخاصة به.')
+                .setTimestamp();
+
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('help_menu')
+                .setPlaceholder('اختر قسم الأوامر...')
+                .addOptions([
+                    { label: 'الأوامر العامة', description: 'أوامر التفاعل والمعلومات', value: 'general' },
+                    { label: 'الأوامر الإدارية', description: 'أوامر التحكم بالحظر والإشراف', value: 'admin' },
+                    { label: 'أوامر الرومات', description: 'إغلاق وإخفاء الرومات والوضع البطيء', value: 'channels' }
+                ]);
+
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            return message.reply({ embeds: [helpEmbed], components: [row] });
+        }
 
         if (command === 'snipe') {
             const channelSnipes = snipeCache.get(message.channel.id);
@@ -722,297 +809,26 @@ client.on('messageCreate', async message => {
                         const endedEmbed = new EmbedBuilder()
                             .setColor('#ED4245')
                             .setTitle('🎉 **انتهت المسابقة** 🎉')
-                            .setDescription(`الجائزة: **${prize}**\n\n❌ للأسف لم يشارك أحد في المسابقة.`);
+                            .setDescription(`الجائزة: **${prize}**\n\nللأسف، لم يشارك أحد بالمسابقة!`);
                         return fetchedMsg.edit({ embeds: [endedEmbed] });
                     }
 
                     const winner = validUsers.random();
-                    const winnerEmbed = new EmbedBuilder()
+                    const winEmbed = new EmbedBuilder()
                         .setColor('#57F287')
                         .setTitle('🎉 **انتهت المسابقة** 🎉')
-                        .setDescription(`الجائزة: **${prize}**\n\n🏆 الفائز: ${winner} (مبروك!)`);
+                        .setDescription(`الجائزة: **${prize}**\nالفائز: ${winner} 🥳\nمبروك عليك!`);
 
-                    await fetchedMsg.edit({ embeds: [winnerEmbed] });
-                    await message.channel.send(`🎊 مبروك ${winner}! لقد فزت بـ **${prize}**!`);
-                } catch (err) {
-                    console.error('Error ending giveaway:', err);
+                    await fetchedMsg.edit({ embeds: [winEmbed] });
+                    return message.channel.send(`🎉 مبروك لـ ${winner} الفوز بـ **${prize}**!`);
+                } catch (e) {
+                    console.error('Error ending giveaway:', e);
                 }
             }, millis);
         }
-
-        if (command === 'كيك') {
-            if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) return message.reply('❌ لا تمتلك صلاحية الطرد.');
-            const target = message.mentions.members.first();
-            if (!target) return message.reply('⚠️ يرجى منشن العضو.');
-            await target.kick();
-            return message.reply(`👢 تم طرد ${target.user.tag} بنجاح.`);
-        }
-
-        if (command === 'بان') {
-            if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply('❌ لا تمتلك صلاحية البان.');
-            const target = message.mentions.members.first();
-            if (!target) return message.reply('⚠️ يرجى منشن العضو.');
-            await target.ban();
-            return message.reply(`🔨 تم تبنيد ${target.user.tag} بنجاح.`);
-        }
-
-        if (command === 'مسح') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply('❌ لا تمتلك صلاحية مسح الرسائل.');
-            const amount = parseInt(args[0]);
-            if (isNaN(amount) || amount <= 0 || amount > 100) return message.reply('⚠️ حدد رقماً بين 1 و 100.');
-            await message.channel.bulkDelete(amount, true);
-            const reply = await message.channel.send(`🧹 تم مسح **${amount}** رسالة.`);
-            setTimeout(() => reply.delete().catch(() => {}), 3000);
-        }
-
-        if (command === 'رول-جماعي') {
-            if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply('❌ يتطلب صلاحية Administrator.');
-            const role = message.mentions.roles.first();
-            if (!role) return message.reply('⚠️ يرجى منشن الرول.');
-
-            await message.reply('⏳ جاري إعطاء الرول لجميع الأعضاء...');
-            try {
-                await message.guild.members.fetch();
-                let count = 0;
-                for (const member of message.guild.members.cache.values()) {
-                    if (!member.user.bot && !member.roles.cache.has(role.id)) {
-                        await member.roles.add(role).catch(() => {});
-                        count++;
-                    }
-                }
-                return message.channel.send(`✅ تم منح رول **${role.name}** لـ **${count}** عضو.`);
-            } catch (e) {
-                return message.channel.send('❌ حدث خطأ.');
-            }
-        }
-
-        // تعديل أمر #رول ليقبل كتابة الرقم (الآي دي) فقط أو المنشن للرتبة والعضو
-        if (command === 'رول') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply('❌ لا تمتلك صلاحية.');
-            
-            const target = message.mentions.members.first();
-            if (!target) return message.reply('⚠️ يرجى منشن العضو أولاً: `#رول @العضو [الرتبة]`');
-
-            // محاولة جلب الرتبة إما عبر المنشن أو عبر كتابة الـ ID مباشرة في أي مكان بالـ args
-            let role = message.mentions.roles.first();
-            if (!role) {
-                const roleArg = args.find(arg => arg !== args[0]); // استثناء العضو
-                if (roleArg) {
-                    const cleanRoleId = roleArg.replace(/[<@&>]/g, '');
-                    role = message.guild.roles.cache.get(cleanRoleId);
-                }
-            }
-
-            if (!role) return message.reply('⚠️ الاستخدام الصحيح:\n`#رول @العضو @الرول` أو `#رول @العضو [آي دي الرتبة]` أو `#رول @العضو [عدد]` (اذا كنت تقصد رتبة برقم معين تأكد من وضع الآي دي الصحيح).');
-            
-            if (target.roles.cache.has(role.id)) {
-                await target.roles.remove(role);
-                return message.reply(`❌ تم إزالة رتبة **${role.name}** عن ${target.user.tag}.`);
-            } else {
-                await target.roles.add(role);
-                return message.reply(`✅ تم إعطاء رتبة **${role.name}** لـ ${target.user.tag}.`);
-            }
-        }
-
-        if (command === 'roleicon') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply('❌ لا تمتلك صلاحية إدارة الرتب.');
-            
-            let roleArg = args[0];
-            let role = message.mentions.roles.first();
-            if (!role && roleArg) {
-                const cleanRoleId = roleArg.replace(/[<@&>]/g, '');
-                role = message.guild.roles.cache.get(cleanRoleId);
-            }
-            
-            let emojiInput = args[1];
-
-            if (!role || !emojiInput) {
-                return message.reply('⚠️ **طريقة الاستخدام:**\n`#roleicon @الرول [الإيموجي]` (أو باستخدام آي دي الرتبة).');
-            }
-
-            try {
-                let iconData = null;
-                const customEmojiMatch = emojiInput.match(/<a?:[a-zA-Z0-9_]+:(\d+)>/);
-                if (customEmojiMatch) {
-                    const emojiId = customEmojiMatch[1];
-                    const fetchedEmoji = message.guild.emojis.cache.get(emojiId);
-                    if (fetchedEmoji) {
-                        iconData = fetchedEmoji.imageURL();
-                    } else {
-                        iconData = `https://cdn.discordapp.com/emojis/${emojiId}.png`;
-                    }
-                } else {
-                    const codePoints = [...emojiInput].map(char => char.codePointAt(0).toString(16)).join('-');
-                    iconData = `https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/${codePoints}.png`;
-                }
-
-                await role.setIcon(iconData);
-                return message.reply(`✅ تم بنجاح تعيين الإيموجي **${emojiInput}** كأيقونة لرتبة **${role.name}**!`);
-            } catch (e) {
-                console.error(e);
-                return message.reply('❌ فشل تعيين الأيقونة، تأكد من أن السيرفر يدعم ميزة أيقونات الرتب (Boost Level 2+) وأن البوت يمتلك رتبة أعلى من الرتبة المراد تعديلها.');
-            }
-        }
-
-        if (command === 'بنغ') {
-            return message.reply(`🏓 سرعة استجابة البوت: **${client.ws.ping}ms**`);
-        }
-
-        if (command === 'قول') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply('❌ لا تمتلك صلاحية.');
-            const text = args.join(' ');
-            if (!text) return message.reply('⚠️ اكتب النص.');
-            await message.delete().catch(() => {});
-            return message.channel.send(text);
-        }
-
-        if (command === 'طوارئ') {
-            if (message.author.id !== message.guild.ownerId) return message.reply('❌ للأونر فقط.');
-            message.guild.channels.cache.forEach(channel => {
-                if (channel.isTextBased()) {
-                    channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false }).catch(() => {});
-                }
-            });
-            return message.reply('🚨 **تم تفعيل الطوارئ!**');
-        }
-
-        if (command === 'فك-طوارئ') {
-            if (message.author.id !== message.guild.ownerId) return message.reply('❌ للأونر فقط.');
-            message.guild.channels.cache.forEach(channel => {
-                if (channel.isTextBased()) {
-                    channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: null }).catch(() => {});
-                }
-            });
-            return message.reply('🟢 **تم إلغاء الطوارئ!**');
-        }
-
-        if (command === 'بطيء') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ لا تمتلك صلاحية.');
-            const time = parseInt(args[0]);
-            if (isNaN(time)) return message.reply('⚠️ حدد عدد الثواني.');
-            await message.channel.setRateLimitPerUser(time);
-            return message.reply(`⏱️ تم ضبط الشات البطيء على **${time}** ثانية.`);
-        }
-
-        if (command === 'help') {
-            const totalCommandsCount = 46;
-
-            const getEmbed = (page) => {
-                if (page === '1') {
-                    return new EmbedBuilder()
-                        .setColor('#5865F2')
-                        .setTitle('📌 أوامر عامة')
-                        .setDescription(`إجمالي الأوامر: **${totalCommandsCount}**\nاختر القسم المناسب من القائمة بالأسفل (انقر على الأمر لنسخه):`)
-                        .addFields(
-                            { name: '`#status`', value: 'إحصائيات البوت وسرعة البينغ ووقت التشغيل.', inline: false },
-                            { name: '`#afk [السبب]`', value: 'لتحديد حالتك كغائب في السيرفر وتنبيه من يمنشنك.', inline: false },
-                            { name: '`#سيرفر`', value: 'لعرض معلومات السيرفر المفصلة وأعداد الأعضاء.', inline: false },
-                            { name: '`#servericon`', value: 'لعرض وصورة شعار السيرفر الحالي.', inline: false },
-                            { name: '`#serverbanner`', value: 'لعرض بانر السيرفر إن وجد.', inline: false },
-                            { name: '`#بروفايل [@العضو]`', value: 'لعرض معلومات العضو وتاريخ انضمامه للسيرفر.', inline: false },
-                            { name: '`#صورة [@العضو]`', value: 'لعرض صورة بروفايل العضو بحجم كبير.', inline: false },
-                            { name: '`#رتب`', value: 'لعرض قائمة جميع رتب السيرفر مرتبة من الأقوى.', inline: false },
-                            { name: '`#توب`', value: 'لعرض أكثر 10 أعضاء نشاطاً بالرسائل اليومية.', inline: false },
-                            { name: '`#topactive`', value: 'لعرض أكثر الأعضاء تفاعلاً ونشاطاً.', inline: false },
-                            { name: '`#activity [@العضو]`', value: 'لمعرفة عدد رسائل وتفاعلات العضو.', inline: false },
-                            { name: '`#firstmsg [@العضو]`', value: 'لجلب أول رسالة أرسلها الشخص في الروم.', inline: false },
-                            { name: '`#بنغ`', value: 'لمعرفة سرعة استجابة البوت الحالية.', inline: false }
-                        );
-                } else if (page === '2') {
-                    return new EmbedBuilder()
-                        .setColor('#E67E22')
-                        .setTitle('🎲 أوامر ألعاب')
-                        .addFields(
-                            { name: '`#luck [@العضو]`', value: 'اختبار نسبة الحظ اليومي.', inline: false },
-                            { name: '`#fortune`', value: 'الحصول على توقع عشوائي وممتع لمستقبلك.', inline: false },
-                            { name: '`#challenge [@العضو]`', value: 'لبدء تحدي عشوائي وممتع مع أحد الأعضاء.', inline: false },
-                            { name: '`#rep [@العضو]`', value: 'لإعطاء نقطة سمعة لعضو متميز.', inline: false },
-                            { name: '`#repboard`', value: 'لعرض لوحة شرف السمعة وأعلى الأعضاء نقاطاً.', inline: false }
-                        );
-                } else if (page === '3') {
-                    return new EmbedBuilder()
-                        .setColor('#2ECC71')
-                        .setTitle('🛡️ أوامر ادارية')
-                        .addFields(
-                            { name: '`#snipe`', value: 'لعرض آخر رسالة تم حذفها في الروم بأمبيد.', inline: false },
-                            { name: '`#snipeall`', value: 'لعرض سجل آخر الرسائل المحذوفة في الروم.', inline: false },
-                            { name: '`#i [@العضو]`', value: 'لفحص تفاصيل الانفايت وحالة احتسابه.', inline: false },
-                            { name: '`#استدعاء [@العضو] [السبب]`', value: 'لاستدعاء عضو إدارياً عبر رسالة خاصة.', inline: false },
-                            { name: '`#warn [@العضو] [السبب]`', value: 'لتحذير عضو وإرسال التفاصيل بالخاص.', inline: false },
-                            { name: '`#slowmode [الثواني]`', value: 'لضبط وضع الشات البطيء للروم.', inline: false },
-                            { name: '`#nick [@العضو] [الاسم]`', value: 'تغيير أو تصفير نك نيم العضو.', inline: false },
-                            { name: '`#بان [@العضو]`', value: 'لتبنيد العضو من السيرفر نهائياً.', inline: false },
-                            { name: '`#كيك [@العضو]`', value: 'لطرد العضو من السيرفر.', inline: false },
-                            { name: '`#فكبان [آي دي العضو]`', value: 'لفك البان عن عضو محظور.', inline: false },
-                            { name: '`#تايم [@العضو] [الدقائق]`', value: 'لإعطاء العضو ميوت مؤقت (تايم آوت).', inline: false },
-                            { name: '`#انتايم [@العضو]`', value: 'لإزالة الميوت المؤقت عن العضو.', inline: false },
-                            { name: '`#مسح [العدد]`', value: 'لمسح رسائل الشات بسرعة (بين 1 و 100).', inline: false },
-                            { name: '`#قفل`', value: 'لقفل الروم الحالي ومنع الأعضاء من الكتابة.', inline: false },
-                            { name: '`#فتح`', value: 'لفتح الروم الحالي والسماح بالكتابة.', inline: false },
-                            { name: '`#اخفاء`', value: 'لإخفاء الروم عن الأعضاء.', inline: false },
-                            { name: '`#اظهار`', value: 'لإظهار الروم وجعله مرئياً.', inline: false },
-                            { name: '`#رول [@العضو] [@الرول/الايدي/العدد]`', value: 'لإعطاء أو إزالة رتبة عن عضو بالمنشن أو الآي دي أو الأرقام.', inline: false },
-                            { name: '`#roleicon [@الرول] [الإيموجي]`', value: 'تعيين أي إيموجي (عادي أو مخصص) كأيقونة للرتبة.', inline: false },
-                            { name: '`#رول-جماعي [@الرول]`', value: 'لإعطاء رتبة معينة لجميع أعضاء السيرفر.', inline: false },
-                            { name: '`#gstart [الوقت] [الجائزة]`', value: 'لبدء مسابقة جديدة تعتمد على التفاعل (الرياكشن).', inline: false },
-                            { name: '`#صرف [المبلغ] [العملة]`', value: 'لتحويل العملات بدقة (يدعم الدينار العراقي `#صرف 50000 دينار`).', inline: false }
-                        );
-                } else if (page === '4') {
-                    return new EmbedBuilder()
-                        .setColor('#FF0000')
-                        .setTitle('👑 أوامر الأونر')
-                        .addFields(
-                            { name: '`#طوارئ`', value: 'لقفل جميع رومات السيرفر في حالات الطوارئ.', inline: false },
-                            { name: '`#فك-طوارئ`', value: 'لإلغاء الطوارئ وفتح جميع الرومات.', inline: false },
-                            { name: '`#ايقاف-السستم`', value: 'لإيقاف نظام البوت بشكل كامل.', inline: false },
-                            { name: '`#تشغيل-السستم`', value: 'لتشغيل نظام البوت وعمله بنجاح.', inline: false }
-                        );
-                }
-            };
-
-            const getMenu = (disabled = false) => {
-                return new ActionRowBuilder().addComponents(
-                    new StringSelectMenuBuilder()
-                        .setCustomId('help_menu')
-                        .setPlaceholder('📂 اختر القسم المطلوب من القائمة...')
-                        .setDisabled(disabled)
-                        .addOptions([
-                            { label: 'أوامر عامة', value: '1', emoji: '📌' },
-                            { label: 'أوامر ألعاب', value: '2', emoji: '🎲' },
-                            { label: 'أوامر ادارية', value: '3', emoji: '🛡️' },
-                            { label: 'أوامر الأونر', value: '4', emoji: '👑' }
-                        ])
-                );
-            };
-
-            const initialMsg = await message.reply({ embeds: [getEmbed('1')], components: [getMenu()] });
-            const collector = initialMsg.createMessageComponentCollector({ time: 180000 });
-
-            collector.on('collect', async i => {
-                try {
-                    const selectedValue = i.values[0];
-
-                    if (selectedValue === '4' && i.user.id !== message.guild.ownerId) {
-                        return i.reply({ content: '❌ هذه القائمة مخصصة لصاحب السيرفر (الأونر) فقط.', ephemeral: true });
-                    }
-
-                    if (i.user.id !== message.author.id) {
-                        return i.reply({ content: '❌ لا يمكنك استخدام هذه القائمة.', ephemeral: true });
-                    }
-
-                    await i.update({ embeds: [getEmbed(selectedValue)], components: [getMenu()] });
-                } catch (err) {
-                    console.error(err);
-                }
-            });
-
-            collector.on('end', () => {
-                initialMsg.edit({ components: [getMenu(true)] }).catch(() => {});
-            });
-        }
-    } catch (err) {
-        console.error('An unexpected error occurred in messageCreate:', err);
+    } catch (error) {
+        console.error('Error handling message:', error);
     }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login('YOUR_BOT_TOKEN_HERE');
